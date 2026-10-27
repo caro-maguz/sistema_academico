@@ -1,0 +1,13 @@
+{
+  "name": "sistema-academico-siga",
+  "version": "1.0.0",
+  "description": "SIGA - Sistema Integrado de Gestión Académica (proyecto final de Arquitectura de Software)",
+  "private": true,
+  "scripts": {
+    "cypress:open": "cypress open",
+    "test": "cypress run"
+  },
+  "devDependencies": {
+    "cypress": "16.1.1"
+  }
+}

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGA - Sistema Integrado de Gestión Académica</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <header>
+    <h1>SIGA</h1>
+    <p>Sistema Integrado de Gestión Académica</p>
+    <p id="info-periodo"></p>
+  </header>
+
+  <main>
+    <!-- 1. Matrícula (usa la fachada MatriculaFacade) -->
+    <section class="tarjeta">
+      <h2>1. Matrícula</h2>
+      <label>Estudiante
+        <select id="mat-estudiante"></select>
+      </label>
+      <p class="etiqueta">Cursos</p>
+      <div id="mat-cursos"></div>
+      <label>Medio de pago
+        <select id="mat-medio">
+          <option value="PSE">PSE</option>
+          <option value="TARJETA">Tarjeta</option>
+        </select>
+      </label>
+      <label>Banco o número de tarjeta
+        <input id="mat-referencia" placeholder="Ej: Bancolombia o 4111 1111">
+      </label>
+      <button id="btn-matricular">Matricular</button>
+      <div id="mat-resultado" class="resultado"></div>
+    </section>
+
+    <!-- 2. Calificaciones (usa las estrategias de nota final) -->
+    <section class="tarjeta">
+      <h2>2. Calificaciones</h2>
+      <label>Estudiante
+        <select id="cal-estudiante"></select>
+      </label>
+      <label>Curso
+        <select id="cal-curso"></select>
+      </label>
+      <div class="fila">
+        <input id="cal-componente" placeholder="Componente (Parcial 1)">
+        <input id="cal-porcentaje" type="number" placeholder="%">
+        <input id="cal-nota" type="number" step="0.1" placeholder="Nota 0-5">
+      </div>
+      <button id="btn-agregar-nota">Agregar nota</button>
+      <ul id="cal-lista"></ul>
+      <button id="btn-publicar">Publicar nota final</button>
+      <div id="cal-resultado" class="resultado"></div>
+    </section>
+
+    <!-- 3. Avisos enviados (lo que generan los suscriptores del Observer) -->
+    <section class="tarjeta">
+      <h2>3. Avisos enviados (correo y SMS)</h2>
+      <ul id="avisos"></ul>
+    </section>
+
+    <!-- 4. Reporte -->
+    <section class="tarjeta">
+      <h2>4. Reporte académico</h2>
+      <label>Estudiante
+        <select id="rep-estudiante"></select>
+      </label>
+      <button id="btn-reporte">Ver historial</button>
+      <div id="rep-resultado"></div>
+    </section>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/eventos.js"></script>
+  <script src="js/repositorios.js"></script>
+  <script src="js/pagos.js"></script>
+  <script src="js/calificaciones.js"></script>
+  <script src="js/notificaciones.js"></script>
+  <script src="js/matricula.js"></script>
+  <script src="js/sistema.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
