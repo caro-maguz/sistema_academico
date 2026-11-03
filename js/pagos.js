@@ -110,6 +110,14 @@ class ServicioPagos {
 
     if (resultado.aprobado) {
       this.bus.publicar("PagoAprobado", { estudianteId: estudiante.id, monto, referencia: resultado.referencia });
+    } else {
+      this.bus.publicar("PagoRechazado", {
+        estudianteId: estudiante.id,
+        monto,
+        medio,
+        referencia,
+        mensaje: resultado.mensaje,
+      });
     }
     return resultado;
   }

@@ -1,44 +1,67 @@
 # SIGA — Sistema Integrado de Gestión Académica
 
-Proyecto final de Arquitectura de Software. Página web en HTML + JavaScript
-(sin servidor ni base de datos) con 6 patrones de diseño y pruebas en Cypress.
+SIGA es un prototipo académico de gestión universitaria. La aplicación conserva los patrones de arquitectura y los flujos locales en JavaScript; los datos funcionales continúan en memoria y se reinician al recargar la página.
 
-## Cómo abrirlo
+## Inicio rápido
 
-1. En VS Code: **Archivo → Abrir carpeta…** → `sistema-academico`.
-2. Para usar el sistema: doble clic en `index.html` (se abre en el navegador).
+### Servidor local
 
-## Cómo ejecutar las pruebas (Cypress)
-
-En la terminal de VS Code (**Terminal → Nueva terminal**):
+Requiere Node.js 20 o superior.
 
 ```bash
-npm install          # solo la primera vez
-npx cypress open     # abre Cypress para ver las pruebas paso a paso
-npx cypress run      # o las ejecuta todas sin abrir ventana
+npm install
+npm start
 ```
 
-En `cypress open`: elige **E2E Testing** → un navegador → haz clic en cada prueba.
+Abre <http://localhost:3000>. También puedes abrir `index.html` directamente, aunque el servidor local se parece más al modo de despliegue.
 
-## Dónde está cada patrón
+La página de acceso de demostración es `login.html`. Credenciales disponibles:
+
+| Perfil | Correo | Contraseña |
+|---|---|---|
+| Administrador | `admin@siga.edu.co` | `Admin123!` |
+| Docente | `docente@siga.edu.co` | `Docente123!` |
+| Estudiante | `estudiante@siga.edu.co` | `Estudiante123!` |
+
+El panel `index.html` conserva el acceso directo usado por las pruebas existentes. Las credenciales y permisos se implementan únicamente en el navegador para mostrar los perfiles; **no son autenticación ni autorización seguras** y no deben proteger información real.
+
+## Pruebas Cypress
+
+```bash
+npm install
+npx cypress open
+# o
+npm test
+```
+
+Las pruebas existentes siguen entrando directamente a `index.html` y usan los mismos identificadores de formulario.
+
+## Interfaz
+
+- Diseño responsive con Bootstrap 5, Bootstrap Icons y Chart.js (recursos CDN).
+- Navegación colapsable y contenido de ejemplo por perfil.
+- Panel de indicadores, matrícula con búsqueda/resumen de créditos y costo, historial de pagos simulado, calificaciones y reporte.
+- Los validadores y cálculos de matrícula, pagos y notas permanecen en sus servicios originales.
+
+## Patrones de diseño
 
 | Patrón | Archivo |
 |---|---|
 | Strategy | `js/pagos.js` (descuentos) y `js/calificaciones.js` (nota final) |
-| Observer | `js/eventos.js` (bus de eventos) y `js/notificaciones.js` (avisos) |
-| Adapter | `js/pagos.js` (`PasarelaPseAdapter`, `PasarelaTarjetaAdapter`) |
+| Observer | `js/eventos.js` (bus), `js/notificaciones.js` (suscriptores) |
+| Adapter | `js/pagos.js` (pasarelas PSE y tarjeta) |
 | Facade | `js/matricula.js` (`MatriculaFacade`) |
 | Repository | `js/repositorios.js` |
 | Singleton | `js/config.js` (`ConfiguracionAcademica`) |
 
-`js/sistema.js` conecta todas las piezas y carga los datos de ejemplo; `js/app.js` maneja la pantalla.
+`js/sistema.js` conecta las piezas y carga datos de ejemplo; `js/app.js` maneja la presentación.
 
-## Pruebas (12)
+## Estructura y preparación de backend
 
-| Archivo | Qué prueba |
-|---|---|
-| `1_matricula.cy.js` | Facade: matrícula exitosa, cruce de horario, más de 20 créditos, pago rechazado |
-| `2_pagos.cy.js` | Strategy (beca del 50 %) y Adapter (PSE con y sin banco) |
-| `3_calificaciones.cy.js` | Strategy: nota por porcentajes y quitando la peor nota |
-| `4_avisos_y_configuracion.cy.js` | Observer (avisos y fallos) y Singleton |
-| `5_flujo_completo.cy.js` | Matricular, calificar, avisos y reporte |
+- `backend/server.js` sirve el frontend y expone `GET /api/health`.
+- `backend/server.js` todavía **no implementa** autenticación JWT, persistencia MongoDB ni los endpoints de negocio. La autenticación de la página es solo demostrativa.
+- `.env.example` enumera variables reservadas para una siguiente fase. No copies credenciales reales al repositorio.
+- `render.yaml` configura el servicio Node de Render. La ruta de salud confirma el servidor web, no que exista una API de negocio.
+- `package.json` incluye comandos para servir la aplicación y ejecutar Cypress.
+
+Antes de usar SIGA con datos reales, se deben implementar y probar en el servidor las rutas `/api/auth/login`, `/api/estudiantes`, `/api/cursos`, `/api/matriculas`, `/api/pagos` y `/api/calificaciones`; además de MongoDB/Mongoose, contraseñas con hash, JWT, autorización RBAC, validación de datos, CORS y manejo de secretos. No se debe confiar en los permisos del frontend.

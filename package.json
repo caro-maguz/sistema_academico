@@ -3,9 +3,15 @@
   "version": "1.0.0",
   "description": "SIGA - Sistema Integrado de Gestión Académica (proyecto final de Arquitectura de Software)",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
     "cypress:open": "cypress open",
-    "test": "cypress run"
+    "test": "cypress run",
+    "test:e2e": "cypress run"
   },
   "devDependencies": {
     "cypress": "16.1.1"
