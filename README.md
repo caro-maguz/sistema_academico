@@ -39,7 +39,7 @@ Las pruebas existentes siguen entrando directamente a `index.html` y usan los mi
 ## Interfaz
 
 - Diseño responsive con Bootstrap 5, Bootstrap Icons y Chart.js (recursos CDN).
-- Navegación colapsable y contenido de ejemplo por perfil.
+- Navegación por perfil: el Estudiante ve sus propias notas e historial; el Docente consulta sus cursos asignados y gestiona calificaciones; Administración conserva la gestión general.
 - Panel de indicadores, matrícula con búsqueda/resumen de créditos y costo, historial de pagos simulado, calificaciones y reporte.
 - Los validadores y cálculos de matrícula, pagos y notas permanecen en sus servicios originales.
 

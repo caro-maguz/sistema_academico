@@ -34,7 +34,10 @@ function pintarAvisos() {
 }
 
 function pintarNotas() {
-  const notas = sistema.calificaciones.listar($("cal-estudiante").value, $("cal-curso").value);
+  const estudianteId = usuarioActual.rol === "student"
+    ? usuarioActual.estudianteId
+    : $("cal-estudiante").value;
+  const notas = sistema.calificaciones.listar(estudianteId, $("cal-curso").value);
   const lista = $("cal-lista");
   lista.replaceChildren();
   notas.forEach((nota) => {
@@ -91,6 +94,11 @@ function aplicarPerfil() {
   document.querySelectorAll("[data-nav-reports]").forEach((item) => {
     item.lastChild.textContent = usuarioActual.rol === "student" ? " Historial" : " Reportes";
   });
+  document.querySelectorAll("[data-permission='grades']").forEach((item) => {
+    if (item.matches(".side-nav a")) {
+      item.lastChild.textContent = usuarioActual.rol === "student" ? " Mis calificaciones" : " Calificaciones";
+    }
+  });
   document.querySelectorAll("[data-nav-enroll]").forEach((item) => {
     item.lastChild.textContent = usuarioActual.rol === "student" ? " Matrícula" : " Matrículas";
   });
@@ -108,13 +116,34 @@ function aplicarPerfil() {
       selector.value = usuarioActual.estudianteId;
       selector.disabled = true;
     });
+    const estudiante = usuarioPorId(usuarioActual.estudianteId);
+    const nombreEstudiante = estudiante
+      ? `${estudiante.id} - ${estudiante.nombre}`
+      : usuarioActual.estudianteId;
+    ["cal-estudiante", "rep-estudiante"].forEach((id) => {
+      const selector = $(id);
+      selector.replaceChildren(new Option(nombreEstudiante, usuarioActual.estudianteId));
+      selector.disabled = true;
+    });
+    $("cal-student-field").hidden = true;
+    $("cal-student-name").querySelector("strong").textContent = nombreEstudiante;
+    $("cal-student-name").hidden = false;
+    $("grades-title").textContent = "Mis calificaciones";
+    $("grades-description").textContent = "Consulta tus notas personales.";
+    $("grades-quick-icon").className = "bi bi-eye";
+    $("grades-quick-title").textContent = "Mis calificaciones";
+    $("grades-quick-description").textContent = "Consulta tus notas";
+    $("rep-student-field").hidden = true;
+    $("rep-student-name").querySelector("strong").textContent = nombreEstudiante;
+    $("rep-student-name").hidden = false;
+    $("reports-description").textContent = "Consulta tu historial académico y tus resultados.";
+    document.querySelectorAll("[data-grade-management]").forEach((item) => { item.hidden = true; });
   }
   if (usuarioActual.rol !== "administrator") actualizarCursosCalificables();
-  if (usuarioActual.rol === "student") {
-    document.querySelectorAll("#calificaciones .grade-entry, #calificaciones .button-row").forEach((item) => { item.hidden = true; });
-  }
 
   if (usuarioActual.rol === "teacher") {
+    $("course-directory-title").textContent = "Mis cursos asignados";
+    $("course-directory-description").textContent = "Consulta tus cursos asignados y sus horarios.";
     $("stat-students-label").textContent = "Estudiantes inscritos";
     $("stat-students").textContent = sistema.estudiantes.listar().length;
     $("stat-students-note").textContent = "En el periodo";
@@ -395,9 +424,14 @@ $("btn-publicar").addEventListener("click", () => {
 
 // ---------- Reporte
 $("btn-reporte").addEventListener("click", () => {
-  const notas = sistema.calificaciones.notasFinalesDe($("rep-estudiante").value);
+  const estudianteId = usuarioActual.rol === "student"
+    ? usuarioActual.estudianteId
+    : $("rep-estudiante").value;
+  const notas = sistema.calificaciones.notasFinalesDe(estudianteId);
   if (notas.length === 0) {
-    $("rep-resultado").textContent = "El estudiante aún no tiene notas finales.";
+    $("rep-resultado").textContent = usuarioActual.rol === "student"
+      ? "El estudiante aún no tiene notas finales."
+      : "No hay notas finales para el estudiante consultado.";
     return;
   }
   let sumaPonderada = 0, sumaCreditos = 0;
