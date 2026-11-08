@@ -22,10 +22,13 @@ function filtroDesde(query, permitidos) {
   return filtro;
 }
 
-// ---------- Página (solo los archivos públicos, NO el .env ni el servidor)
+// ---------- Páginas públicas (index, login y registro)
 const paginaPrincipal = (req, res) => res.sendFile(path.join(RAIZ, "index.html"));
 app.get("/", paginaPrincipal);
 app.get("/index.html", paginaPrincipal);
+app.get("/login.html", (req, res) => res.sendFile(path.join(RAIZ, "login.html")));
+app.get("/register.html", (req, res) => res.sendFile(path.join(RAIZ, "register.html")));
+
 app.get("/estilos.css", (req, res) => res.sendFile(path.join(RAIZ, "estilos.css")));
 app.use("/js", express.static(path.join(RAIZ, "js")));
 
