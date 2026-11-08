@@ -1,6 +1,7 @@
 // =====================================================================
-// Arma el sistema: conecta repositorios, pasarelas, servicios y suscriptores,
-// y carga datos de ejemplo. Es el único lugar que conoce todas las piezas.
+// Arma el sistema: conecta repositorios, pasarelas, servicios y suscriptores.
+// Los datos viven en MongoDB Atlas (se cargan con server/seed.js).
+// Es el único lugar que conoce todas las piezas.
 // =====================================================================
 function crearSistema() {
   const bus = new BusEventos();

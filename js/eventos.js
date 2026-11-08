@@ -18,10 +18,17 @@ class BusEventos {
     this.suscriptores[tipo].push(funcion);
   }
 
+<<<<<<< HEAD
   publicar(tipo, datos) {
     for (const funcion of this.suscriptores[tipo] || []) {
       try {
         funcion(datos);
+=======
+  async publicar(tipo, datos) {
+    for (const funcion of this.suscriptores[tipo] || []) {
+      try {
+        await funcion(datos);
+>>>>>>> origin/feature/mongodb-atlas
       } catch (e) {
         // Si un suscriptor falla, los demás igual reciben el evento.
         this.errores.push(tipo + ": " + e.message);

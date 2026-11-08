@@ -100,7 +100,11 @@ class ServicioPagos {
     return this.seleccionarDescuento(estudiante).aplicar(creditos * valorCredito);
   }
 
+<<<<<<< HEAD
   pagar(estudiante, medio, referencia, monto) {
+=======
+  async pagar(estudiante, medio, referencia, monto) {
+>>>>>>> origin/feature/mongodb-atlas
     const pasarela = this.pasarelas[medio];
     if (!pasarela) throw new ReglaNegocioError("Medio de pago no soportado: " + medio);
 
@@ -109,6 +113,7 @@ class ServicioPagos {
       : pasarela.cobrar({ documento: estudiante.id, referencia, monto });
 
     if (resultado.aprobado) {
+<<<<<<< HEAD
       this.bus.publicar("PagoAprobado", { estudianteId: estudiante.id, monto, referencia: resultado.referencia });
     } else {
       this.bus.publicar("PagoRechazado", {
@@ -118,6 +123,9 @@ class ServicioPagos {
         referencia,
         mensaje: resultado.mensaje,
       });
+=======
+      await this.bus.publicar("PagoAprobado", { estudianteId: estudiante.id, monto, referencia: resultado.referencia });
+>>>>>>> origin/feature/mongodb-atlas
     }
     return resultado;
   }

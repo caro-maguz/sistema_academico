@@ -32,13 +32,17 @@ class SuscriptorNotificaciones {
   registrarseEn(bus) {
     bus.suscribir("PagoAprobado", (e) =>
       this.#avisar(e.estudianteId, "Recibimos tu pago por " + formatoPesos(e.monto) + " (ref. " + e.referencia + ")"));
+<<<<<<< HEAD
     bus.suscribir("PagoRechazado", (e) =>
       this.#avisar(e.estudianteId, "Tu pago fue rechazado: " + e.mensaje));
+=======
+>>>>>>> origin/feature/mongodb-atlas
     bus.suscribir("MatriculaConfirmada", (e) =>
       this.#avisar(e.estudianteId, "Tu matrícula quedó confirmada. Cursos: " + e.cursos.join(", ")));
     bus.suscribir("NotaPublicada", (e) =>
       this.#avisar(e.estudianteId, "Nota definitiva de " + e.nombreCurso + ": " + formatoNota(e.nota)
         + (e.aprobado ? " (APROBADO)" : " (REPROBADO)")));
+<<<<<<< HEAD
     bus.suscribir("PeriodoIniciado", (e) =>
       this.estudiantes.listar().forEach((estudiante) =>
         this.canales.forEach((canal) => canal.enviar(estudiante, "Inició el periodo académico " + e.periodo))));
@@ -46,6 +50,12 @@ class SuscriptorNotificaciones {
 
   #avisar(estudianteId, mensaje) {
     const estudiante = this.estudiantes.buscarPorId(estudianteId);
+=======
+  }
+
+  async #avisar(estudianteId, mensaje) {
+    const estudiante = await this.estudiantes.buscarPorId(estudianteId);
+>>>>>>> origin/feature/mongodb-atlas
     if (estudiante) {
       this.canales.forEach((canal) => canal.enviar(estudiante, mensaje));
     }

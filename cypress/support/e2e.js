@@ -1,5 +1,13 @@
 // Comandos reutilizables para las pruebas.
 
+<<<<<<< HEAD
+=======
+// Antes de cada prueba la base de datos vuelve a su estado inicial.
+beforeEach(() => {
+  cy.task("reiniciarBD");
+});
+
+>>>>>>> origin/feature/mongodb-atlas
 // Matricula a un estudiante desde la pantalla.
 Cypress.Commands.add("matricular", (estudiante, cursos, medio, referencia) => {
   cy.get("#mat-estudiante").select(estudiante);

@@ -40,6 +40,7 @@ class ServicioCalificaciones {
     };
   }
 
+<<<<<<< HEAD
   registrarNota(estudianteId, cursoId, componente, porcentaje, valor) {
     this.#validarMatriculado(estudianteId, cursoId);
     if (isNaN(valor) || valor < 0 || valor > 5) throw new ReglaNegocioError("La nota debe estar entre 0 y 5");
@@ -60,6 +61,28 @@ class ServicioCalificaciones {
 
   #validarMatriculado(estudianteId, cursoId) {
     const matricula = this.matriculas.buscarActiva(estudianteId, this.config.periodo);
+=======
+  async registrarNota(estudianteId, cursoId, componente, porcentaje, valor) {
+    await this.#validarMatriculado(estudianteId, cursoId);
+    if (isNaN(valor) || valor < 0 || valor > 5) throw new ReglaNegocioError("La nota debe estar entre 0 y 5");
+    await this.calificaciones.agregar(estudianteId, cursoId, { componente, porcentaje, valor });
+  }
+
+  async publicarNotaFinal(estudianteId, cursoId) {
+    await this.#validarMatriculado(estudianteId, cursoId);
+    const curso = await this.cursos.buscarPorId(cursoId);
+    const estrategia = this.estrategias[curso.esquema];
+    const nota = Math.round(estrategia.calcular(await this.calificaciones.listar(estudianteId, cursoId)) * 10) / 10;
+    const notaFinal = { estudianteId, cursoId, nota, aprobado: nota >= this.config.notaMinima };
+
+    await this.calificaciones.guardarNotaFinal(notaFinal);
+    await this.bus.publicar("NotaPublicada", { ...notaFinal, nombreCurso: curso.nombre });
+    return notaFinal;
+  }
+
+  async #validarMatriculado(estudianteId, cursoId) {
+    const matricula = await this.matriculas.buscarActiva(estudianteId, this.config.periodo);
+>>>>>>> origin/feature/mongodb-atlas
     if (!matricula || !matricula.cursos.includes(cursoId)) {
       throw new ReglaNegocioError("El estudiante no está matriculado en " + cursoId);
     }
