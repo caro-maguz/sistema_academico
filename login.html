@@ -35,19 +35,35 @@
         </div>
         <form id="login-form" novalidate>
           <label class="form-label" for="login-email">Correo institucional</label>
-          <div class="login-input-wrap"><i class="bi bi-envelope"></i><input id="login-email" name="email" type="email" class="form-control" placeholder="nombre@universidad.edu.co" autocomplete="username" required></div>
+          <div class="login-input-wrap">
+            <i class="bi bi-envelope"></i>
+            <input id="login-email" name="email" type="email" class="form-control" placeholder="nombre@universidad.edu.co" autocomplete="username" required>
+          </div>
           <label class="form-label mt-3" for="login-password">Contraseña</label>
-          <div class="login-input-wrap"><i class="bi bi-lock"></i><input id="login-password" name="password" type="password" class="form-control" placeholder="Ingresa tu contraseña" autocomplete="current-password" required><button id="toggle-password" class="password-toggle" type="button" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button></div>
-          <div class="login-options"><label class="remember-label"><input id="remember-session" type="checkbox"> Recordar sesión</label><span>Acceso de demostración</span></div>
+          <div class="login-input-wrap">
+            <i class="bi bi-lock"></i>
+            <input id="login-password" name="password" type="password" class="form-control" placeholder="Ingresa tu contraseña" autocomplete="current-password" required>
+            <button id="toggle-password" class="password-toggle" type="button" aria-label="Mostrar contraseña"><i class="bi bi-eye"></i></button>
+          </div>
+          <div class="login-options">
+            <label class="remember-label"><input id="remember-session" type="checkbox"> Recordar sesión</label>
+            <span>Acceso de demostración</span>
+          </div>
           <div id="login-error" class="login-error" role="alert" hidden>Correo o contraseña incorrectos.</div>
           <button type="submit" class="btn btn-primary login-submit">Ingresar <i class="bi bi-arrow-right"></i></button>
         </form>
+
         <div class="demo-accounts">
           <p><i class="bi bi-info-circle"></i> Credenciales locales para probar roles:</p>
           <span>admin@siga.edu.co · Admin123!</span>
           <span>docente@siga.edu.co · Docente123!</span>
           <span>estudiante@siga.edu.co · Estudiante123!</span>
         </div>
+
+        <div class="text-center mt-3">
+          <p class="mb-0">¿No tienes cuenta? <a href="register.html" class="fw-bold text-decoration-none">Regístrate aquí</a></p>
+        </div>
+
         <p class="login-disclaimer">Autenticación de interfaz solo para demostración. No usar credenciales reales.</p>
       </div>
     </section>
