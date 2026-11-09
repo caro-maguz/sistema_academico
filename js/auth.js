@@ -1,52 +1,51 @@
-// Autenticación local de demostración; nunca usar estas credenciales en producción.
-const SIGAAuth = (() => {
-  const ACCOUNTS = Object.freeze({
-    "admin@siga.edu.co": { password: "Admin123!", nombre: "Administrador SIGA", rol: "administrator" },
-    "docente@siga.edu.co": {
-      password: "Docente123!", nombre: "Docente SIGA", rol: "teacher",
-      cursosAsignados: ["ARQ701", "BD501", "CAL601"],
-    },
-    "estudiante@siga.edu.co": {
-      password: "Estudiante123!", nombre: "Estudiante SIGA", rol: "student", estudianteId: "E001",
-    },
-  });
-  const SESSION_KEY = "siga.demo.user";
-
-  function login(correo, password, recordar) {
-    const account = ACCOUNTS[correo.trim().toLowerCase()];
-    if (!account || account.password !== password) return null;
-    const user = {
-      correo: correo.trim().toLowerCase(),
-      nombre: account.nombre,
-      rol: account.rol,
-      estudianteId: account.estudianteId,
-      cursosAsignados: account.cursosAsignados,
-    };
-    const storage = recordar ? localStorage : sessionStorage;
-    const otherStorage = recordar ? sessionStorage : localStorage;
-    otherStorage.removeItem(SESSION_KEY);
-    storage.setItem(SESSION_KEY, JSON.stringify(user));
-    return user;
+// Cliente de la API de SIGA. La sesión vive en una cookie httpOnly que pone el servidor;
+// el navegador nunca guarda contraseñas ni tokens.
+const SIGAApi = (() => {
+  async function pedir(metodo, ruta, cuerpo) {
+    const respuesta = await fetch(ruta, {
+      method: metodo,
+      credentials: "same-origin",
+      headers: cuerpo ? { "Content-Type": "application/json" } : {},
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+    });
+    const datos = await respuesta.json().catch(() => ({}));
+    if (!respuesta.ok) {
+      const error = new Error(datos.error || "No se pudo completar la solicitud");
+      error.estado = respuesta.status;
+      throw error;
+    }
+    return datos;
   }
 
-  function getCurrentUser() {
-    const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-    if (!raw) return { nombre: "Administrador", correo: "", rol: "administrator", legacy: true };
+  const consulta = (parametros) => {
+    const limpios = Object.entries(parametros || {}).filter(([, valor]) => valor);
+    return limpios.length ? "?" + new URLSearchParams(limpios).toString() : "";
+  };
+
+  return Object.freeze({
+    get: (ruta, parametros) => pedir("GET", ruta + consulta(parametros)),
+    post: (ruta, cuerpo) => pedir("POST", ruta, cuerpo || {}),
+    patch: (ruta, cuerpo) => pedir("PATCH", ruta, cuerpo || {}),
+  });
+})();
+
+const SIGAAuth = (() => {
+  const login = (correo, password, recordar) =>
+    SIGAApi.post("/api/auth/login", { correo, password, recordar: Boolean(recordar) }).then((r) => r.usuario);
+
+  const registrar = (datos) => SIGAApi.post("/api/auth/registro", datos).then((r) => r.usuario);
+
+  // Devuelve { usuario, permisos, estudiante } o null si no hay sesión.
+  async function sesionActual() {
     try {
-      const user = JSON.parse(raw);
-      if (!user || !SIGAPermissions[user.rol]) throw new Error("Perfil de sesión inválido");
-      return user;
+      return await SIGAApi.get("/api/auth/sesion");
     } catch (error) {
-      sessionStorage.removeItem(SESSION_KEY);
-      localStorage.removeItem(SESSION_KEY);
+      if (error.estado === 401) return null;
       throw error;
     }
   }
 
-  function logout() {
-    sessionStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(SESSION_KEY);
-  }
+  const logout = () => SIGAApi.post("/api/auth/logout").catch(() => null);
 
-  return Object.freeze({ login, getCurrentUser, logout });
+  return Object.freeze({ login, registrar, sesionActual, logout });
 })();

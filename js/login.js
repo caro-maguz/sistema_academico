@@ -1,21 +1,34 @@
-if (new URLSearchParams(window.location.search).has("logout")) SIGAAuth.logout();
-
 const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
+const loginSubmit = loginForm.querySelector("button[type=submit]");
 
-loginForm.addEventListener("submit", (event) => {
+// Si ya hay sesión, va directo al panel; si viene de "Cerrar sesión", la cierra.
+(async () => {
+  if (new URLSearchParams(window.location.search).has("logout")) {
+    await SIGAAuth.logout();
+    window.history.replaceState(null, "", "login.html");
+  } else if (await SIGAAuth.sesionActual().catch(() => null)) {
+    window.location.replace("index.html");
+  }
+})();
+
+loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const user = SIGAAuth.login(
-    document.getElementById("login-email").value,
-    document.getElementById("login-password").value,
-    document.getElementById("remember-session").checked,
-  );
-  if (!user) {
+  loginSubmit.disabled = true;
+  try {
+    await SIGAAuth.login(
+      document.getElementById("login-email").value,
+      document.getElementById("login-password").value,
+      document.getElementById("remember-session").checked,
+    );
+    window.location.assign("index.html");
+  } catch (error) {
+    loginError.textContent = error.estado === 401 ? "Correo o contraseña incorrectos." : error.message;
     loginError.hidden = false;
     document.getElementById("login-password").setAttribute("aria-invalid", "true");
-    return;
+  } finally {
+    loginSubmit.disabled = false;
   }
-  window.location.assign("index.html");
 });
 
 document.getElementById("toggle-password").addEventListener("click", (event) => {

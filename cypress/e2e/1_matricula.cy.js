@@ -1,6 +1,7 @@
 // Patrón FACADE: todo el proceso de matrícula con un solo botón.
 describe("Matrícula (Facade)", () => {
   beforeEach(() => {
+    cy.iniciarSesion("admin");
     cy.visit("index.html");
   });
 

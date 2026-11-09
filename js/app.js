@@ -1,11 +1,20 @@
-// Pantalla: conecta la interfaz con los servicios sin cambiar las reglas de negocio.
-const sistema = crearSistema();
-window.SIGA = { sistema, ConfiguracionAcademica, SIGAAuth, SIGAPermissions, tienePermiso };
-
+// Pantalla: muestra los datos de la API y envía las acciones al servidor.
+// Las reglas de negocio y los permisos se validan en el backend.
 const $ = (id) => document.getElementById(id);
+const NOMBRES_ROL = { administrator: "Administrador", teacher: "Docente", student: "Estudiante" };
+const estado = {
+  config: null, cursos: [], estudiantes: [], matriculas: [], pagos: [], avisos: [], notasFinales: [], usuarios: [],
+};
+let usuarioActual;
 let actividadChart;
-let usuarioActual = SIGAAuth.getCurrentUser();
-const historialPagos = [];
+const vistaPrevia = new ServicioPagos({}, null); // solo para estimar el valor antes de enviar
+
+window.SIGA = { ConfiguracionAcademica, SIGAApi, estado };
+
+const escapar = (valor) => String(valor ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const puede = (permiso) => tienePermiso(usuarioActual.rol, permiso);
+const esRol = (rol) => usuarioActual.rol === rol;
 
 function mostrar(id, texto, ok) {
   $(id).textContent = texto;
@@ -16,15 +25,55 @@ function textoHorario(curso) {
   return curso.horario.map((f) => f.dia + " " + f.inicio + "-" + f.fin).join(", ");
 }
 
+const cursoPorId = (id) => estado.cursos.find((c) => c.id === id) || null;
+const usuarioPorId = (id) => estado.estudiantes.find((e) => e.id === id) || null;
+const matriculaActiva = (estudianteId) =>
+  estado.matriculas.find((m) => m.estudianteId === estudianteId && m.periodo === estado.config.periodo) || null;
+
+// Si la sesión expiró, vuelve al inicio de sesión.
+function manejarError(error, idResultado) {
+  if (error.estado === 401) {
+    window.location.replace("login.html");
+    return;
+  }
+  if (idResultado) mostrar(idResultado, error.message, false);
+  else mostrarToast(error.message, false);
+}
+
+// ---------- Carga de datos
+async function recargarDatos() {
+  const pedidos = {
+    config: SIGAApi.get("/api/config"),
+    cursos: SIGAApi.get("/api/cursos"),
+    estudiantes: SIGAApi.get("/api/estudiantes"),
+    matriculas: SIGAApi.get("/api/matriculas"),
+  };
+  if (puede("payments")) pedidos.pagos = SIGAApi.get("/api/pagos");
+  if (puede("notifications")) pedidos.avisos = SIGAApi.get("/api/notificaciones");
+  if (esRol("administrator") || esRol("student")) pedidos.notasFinales = SIGAApi.get("/api/notas-finales");
+  if (puede("users")) pedidos.usuarios = SIGAApi.get("/api/usuarios");
+  const claves = Object.keys(pedidos);
+  const valores = await Promise.all(Object.values(pedidos));
+  claves.forEach((clave, i) => { estado[clave] = valores[i]; });
+}
+
+// ---------- Pintar
 function llenarEstudiantes(idSelect) {
-  $(idSelect).innerHTML = sistema.estudiantes.listar()
-    .map((e) => `<option value="${e.id}">${e.id} - ${e.nombre}</option>`).join("");
+  const anterior = $(idSelect).value;
+  $(idSelect).innerHTML = estado.estudiantes
+    .map((e) => `<option value="${escapar(e.id)}">${escapar(e.id)} - ${escapar(e.nombre)}</option>`).join("");
+  if (estado.estudiantes.some((e) => e.id === anterior)) $(idSelect).value = anterior;
 }
 
 function pintarAvisos() {
   const lista = $("avisos");
   lista.replaceChildren();
-  sistema.bandeja.slice().reverse().forEach((aviso) => {
+  if (estado.avisos.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "Aún no hay avisos.";
+    lista.appendChild(item);
+  }
+  estado.avisos.forEach((aviso) => {
     const item = document.createElement("li");
     const encabezado = document.createElement("strong");
     encabezado.textContent = `[${aviso.canal} → ${aviso.destino}] `;
@@ -33,98 +82,85 @@ function pintarAvisos() {
   });
 }
 
-function pintarNotas() {
-  const estudianteId = usuarioActual.rol === "student"
-    ? usuarioActual.estudianteId
-    : $("cal-estudiante").value;
-  const notas = sistema.calificaciones.listar(estudianteId, $("cal-curso").value);
-  const lista = $("cal-lista");
-  lista.replaceChildren();
-  notas.forEach((nota) => {
-    const item = document.createElement("li");
-    item.textContent = `${nota.componente}: ${formatoNota(nota.valor)} (${nota.porcentaje}%)`;
-    lista.appendChild(item);
-  });
+function estudianteDeCalificaciones() {
+  return esRol("student") ? usuarioActual.estudianteId : $("cal-estudiante").value;
 }
 
-function usuarioPorId(id) {
-  return sistema.estudiantes.buscarPorId(id);
+async function pintarNotas() {
+  const lista = $("cal-lista");
+  const estudianteId = estudianteDeCalificaciones();
+  const cursoId = $("cal-curso").value;
+  if (!estudianteId || !cursoId) {
+    lista.replaceChildren();
+    return;
+  }
+  try {
+    const notas = await SIGAApi.get("/api/calificaciones", { estudianteId, cursoId });
+    lista.replaceChildren();
+    notas.forEach((nota) => {
+      const item = document.createElement("li");
+      item.textContent = `${nota.componente}: ${formatoNota(nota.valor)} (${nota.porcentaje}%)`;
+      lista.appendChild(item);
+    });
+  } catch (error) {
+    manejarError(error, "cal-resultado");
+  }
 }
 
 function cursosAccesibles() {
-  const asignados = usuarioActual.rol === "teacher" ? usuarioActual.cursosAsignados : null;
-  const matricula = usuarioActual.rol === "student" && usuarioActual.estudianteId
-    ? sistema.matriculas.buscarActiva(usuarioActual.estudianteId, sistema.config.periodo)
-    : null;
-  const matriculados = usuarioActual.rol === "student" ? (matricula ? matricula.cursos : []) : null;
-  return sistema.cursos.listar().filter((curso) =>
-    (!asignados || asignados.includes(curso.id)) && (!matriculados || matriculados.includes(curso.id)));
+  if (esRol("teacher")) return estado.cursos.filter((c) => usuarioActual.cursosAsignados.includes(c.id));
+  if (esRol("student")) {
+    const matricula = matriculaActiva(usuarioActual.estudianteId);
+    return estado.cursos.filter((c) => matricula && matricula.cursos.includes(c.id));
+  }
+  return estado.cursos;
 }
 
-function actualizarCursosCalificables() {
-  if (usuarioActual.rol === "administrator") return;
-  const cursoAnterior = $("cal-curso").value;
-  $("cal-curso").innerHTML = cursosAccesibles().map((curso) =>
-    `<option value="${curso.id}">${curso.id} - ${curso.nombre}</option>`).join("");
-  if (cursosAccesibles().some((curso) => curso.id === cursoAnterior)) $("cal-curso").value = cursoAnterior;
-  pintarNotas();
+function pintarCursosCalificables() {
+  const anterior = $("cal-curso").value;
+  $("cal-curso").innerHTML = cursosAccesibles()
+    .map((c) => `<option value="${escapar(c.id)}">${escapar(c.id)} - ${escapar(c.nombre)}</option>`).join("");
+  if (cursosAccesibles().some((c) => c.id === anterior)) $("cal-curso").value = anterior;
 }
 
 function aplicarPerfil() {
-  const nombres = { administrator: "Administrador", teacher: "Docente", student: "Estudiante" };
-  const nombre = usuarioActual.legacy ? "Administrador" : usuarioActual.nombre.split(" ")[0];
-  const rolLabel = nombres[usuarioActual.rol] || "Usuario";
-  $("user-name").textContent = usuarioActual.legacy ? rolLabel : usuarioActual.nombre;
+  const rolLabel = NOMBRES_ROL[usuarioActual.rol] || "Usuario";
+  const primerNombre = usuarioActual.nombre.split(" ")[0];
+  $("user-name").textContent = usuarioActual.nombre;
   $("user-role").textContent = rolLabel;
-  $("welcome-name").textContent = nombre;
-  $("user-avatar").textContent = nombre.slice(0, 2).toUpperCase();
+  $("welcome-name").textContent = primerNombre;
+  $("user-avatar").textContent = primerNombre.slice(0, 2).toUpperCase();
 
-  document.querySelectorAll("[data-permission]").forEach((item) => {
-    item.hidden = !tienePermiso(usuarioActual.rol, item.dataset.permission);
-  });
+  document.querySelectorAll("[data-permission]").forEach((item) => { item.hidden = !puede(item.dataset.permission); });
   document.querySelectorAll("[data-permission-section]").forEach((item) => {
-    item.hidden = !tienePermiso(usuarioActual.rol, item.dataset.permissionSection);
+    item.hidden = !puede(item.dataset.permissionSection);
   });
-  document.querySelectorAll("[data-role]").forEach((item) => {
-    item.hidden = item.dataset.role !== usuarioActual.rol;
-  });
+  document.querySelectorAll("[data-role]").forEach((item) => { item.hidden = item.dataset.role !== usuarioActual.rol; });
   document.querySelectorAll("[data-nav-courses]").forEach((item) => {
-    item.lastChild.textContent = usuarioActual.rol === "administrator" ? " Cursos" : " Mis Cursos";
+    item.lastChild.textContent = esRol("administrator") ? " Cursos" : " Mis Cursos";
   });
   document.querySelectorAll("[data-nav-reports]").forEach((item) => {
-    item.lastChild.textContent = usuarioActual.rol === "student" ? " Historial" : " Reportes";
+    item.lastChild.textContent = esRol("student") ? " Historial" : " Reportes";
   });
-  document.querySelectorAll("[data-permission='grades']").forEach((item) => {
-    if (item.matches(".side-nav a")) {
-      item.lastChild.textContent = usuarioActual.rol === "student" ? " Mis calificaciones" : " Calificaciones";
-    }
+  document.querySelectorAll(".side-nav a[data-permission='grades']").forEach((item) => {
+    item.lastChild.textContent = esRol("student") ? " Mis calificaciones" : " Calificaciones";
   });
   document.querySelectorAll("[data-nav-enroll]").forEach((item) => {
-    item.lastChild.textContent = usuarioActual.rol === "student" ? " Matrícula" : " Matrículas";
+    item.lastChild.textContent = esRol("student") ? " Matrícula" : " Matrículas";
   });
   $("profile-name").textContent = usuarioActual.nombre;
-  $("profile-email").textContent = usuarioActual.correo || "Acceso directo de demostración";
+  $("profile-email").textContent = `${usuarioActual.correo} · ${rolLabel}`
+    + (usuarioActual.estudianteId ? ` · Código ${usuarioActual.estudianteId}` : "");
   $("profile-avatar").textContent = usuarioActual.nombre.slice(0, 2).toUpperCase();
-  $("config-period").textContent = sistema.config.periodo;
-  $("config-credits").textContent = sistema.config.maxCreditos;
-  $("config-price").textContent = formatoPesos(sistema.config.valorCredito);
 
-  if (usuarioActual.rol === "student" && usuarioActual.estudianteId) {
-    ["mat-estudiante", "cal-estudiante", "rep-estudiante"].forEach((id) => {
-      const selector = $(id);
-      [...selector.options].forEach((option) => { option.hidden = option.value !== usuarioActual.estudianteId; });
-      selector.value = usuarioActual.estudianteId;
-      selector.disabled = true;
-    });
+  if (esRol("student")) {
     const estudiante = usuarioPorId(usuarioActual.estudianteId);
-    const nombreEstudiante = estudiante
-      ? `${estudiante.id} - ${estudiante.nombre}`
-      : usuarioActual.estudianteId;
-    ["cal-estudiante", "rep-estudiante"].forEach((id) => {
-      const selector = $(id);
-      selector.replaceChildren(new Option(nombreEstudiante, usuarioActual.estudianteId));
-      selector.disabled = true;
+    const nombreEstudiante = estudiante ? `${estudiante.id} - ${estudiante.nombre}` : usuarioActual.estudianteId;
+    ["mat-estudiante", "cal-estudiante", "rep-estudiante"].forEach((id) => {
+      $(id).replaceChildren(new Option(nombreEstudiante, usuarioActual.estudianteId));
+      $(id).disabled = true;
     });
+    $("mat-student-field").hidden = true;
     $("cal-student-field").hidden = true;
     $("cal-student-name").querySelector("strong").textContent = nombreEstudiante;
     $("cal-student-name").hidden = false;
@@ -137,50 +173,86 @@ function aplicarPerfil() {
     $("rep-student-name").querySelector("strong").textContent = nombreEstudiante;
     $("rep-student-name").hidden = false;
     $("reports-description").textContent = "Consulta tu historial académico y tus resultados.";
+    $("payments-description").textContent = "Tus pagos de matrícula.";
     document.querySelectorAll("[data-grade-management]").forEach((item) => { item.hidden = true; });
   }
-  if (usuarioActual.rol !== "administrator") actualizarCursosCalificables();
-
-  if (usuarioActual.rol === "teacher") {
+  if (esRol("teacher")) {
     $("course-directory-title").textContent = "Mis cursos asignados";
     $("course-directory-description").textContent = "Consulta tus cursos asignados y sus horarios.";
-    $("stat-students-label").textContent = "Estudiantes inscritos";
-    $("stat-students").textContent = sistema.estudiantes.listar().length;
-    $("stat-students-note").textContent = "En el periodo";
-    $("stat-faculty-label").textContent = "Cursos asignados";
-    $("stat-faculty").textContent = cursosAccesibles().length;
-    $("stat-faculty-note").textContent = "Asignación docente";
-    $("stat-courses-label").textContent = "Notas pendientes";
-    $("stat-courses").textContent = "0";
-    $("stat-courses-note").textContent = "Por publicar";
-    $("stat-enroll-label").textContent = "Periodo";
-    $("stat-enroll").textContent = sistema.config.periodo;
-    $("stat-enroll-note").textContent = "Periodo lectivo";
-  } else if (usuarioActual.rol === "student") {
-    const estudiante = sistema.estudiantes.listar()[0];
-    const matricula = estudiante && sistema.matriculas.buscarActiva(estudiante.id, sistema.config.periodo);
-    const notasFinales = estudiante ? sistema.calificaciones.notasFinalesDe(estudiante.id) : [];
-    const promedio = notasFinales.length
-      ? (notasFinales.reduce((suma, nota) => suma + nota.nota, 0) / notasFinales.length).toFixed(1).replace(".", ",")
-      : "—";
-    $("stat-students-label").textContent = "Créditos matriculados";
-    $("stat-students").textContent = matricula ? matricula.creditos : "0";
-    $("stat-students-note").textContent = "En el periodo vigente";
-    $("stat-faculty-label").textContent = "Promedio acumulado";
-    $("stat-faculty").textContent = promedio;
-    $("stat-faculty-note").textContent = "Desempeño general";
-    $("stat-courses-label").textContent = "Pagos pendientes";
-    $("stat-courses").textContent = "0";
-    $("stat-courses-note").textContent = "Sin saldos pendientes";
-    $("stat-enroll-label").textContent = "Cursos disponibles";
-    $("stat-enroll").textContent = sistema.cursos.listar().length;
-    $("stat-enroll-note").textContent = "Oferta académica";
   }
+}
+
+function pintarIndicadores() {
+  const { periodo, maxCreditos, valorCredito } = estado.config;
+  const matriculasPeriodo = estado.matriculas.filter((m) => m.periodo === periodo);
+  $("info-periodo").textContent = `Periodo ${periodo} · Máximo ${maxCreditos} créditos · Valor del crédito ${formatoPesos(valorCredito)}`;
+  $("sidebar-periodo").textContent = `Periodo ${periodo}`;
+  $("config-period").textContent = periodo;
+  $("config-credits").textContent = maxCreditos;
+  $("config-price").textContent = formatoPesos(valorCredito);
+  const almacenamiento = estado.config.almacenamiento === "mongodb" ? "MongoDB Atlas" : "Memoria (pruebas)";
+  $("config-storage").textContent = almacenamiento;
+  $("footer-storage").textContent = "Datos: " + almacenamiento;
+
+  const indicadores = {
+    administrator: [
+      ["Estudiantes", estado.estudiantes.length, "Registrados"],
+      ["Docentes", estado.usuarios.filter((u) => u.rol === "teacher").length, "Con cuenta activa"],
+      ["Cursos", estado.cursos.length, "Oferta académica"],
+      ["Matrículas", matriculasPeriodo.length, "En este periodo"],
+    ],
+    teacher: [
+      ["Estudiantes inscritos", new Set(matriculasPeriodo.filter((m) => m.cursos.some((c) => usuarioActual.cursosAsignados.includes(c)))
+        .map((m) => m.estudianteId)).size, "En tus cursos"],
+      ["Cursos asignados", cursosAccesibles().length, "Asignación docente"],
+      ["Cursos en el sistema", estado.cursos.length, "Oferta académica"],
+      ["Periodo", periodo, "Periodo lectivo"],
+    ],
+    student: (() => {
+      const matricula = matriculaActiva(usuarioActual.estudianteId);
+      const promedio = estado.notasFinales.length
+        ? formatoNota(estado.notasFinales.reduce((s, n) => s + n.nota, 0) / estado.notasFinales.length) : "—";
+      return [
+        ["Créditos matriculados", matricula ? matricula.creditos : 0, "En el periodo vigente"],
+        ["Promedio acumulado", promedio, "Desempeño general"],
+        ["Pagos registrados", estado.pagos.filter((p) => p.estado === "Pagado").length, "Pagos aprobados"],
+        ["Cursos disponibles", estado.cursos.length, "Oferta académica"],
+      ];
+    })(),
+  }[usuarioActual.rol];
+  ["students", "faculty", "courses", "enroll"].forEach((clave, i) => {
+    const [etiqueta, valor, nota] = indicadores[i];
+    $(`stat-${clave}-label`).textContent = etiqueta;
+    $(`stat-${clave}`).textContent = valor;
+    $(`stat-${clave}-note`).textContent = nota;
+  });
+
+  if (actividadChart) {
+    actividadChart.data.labels = estado.cursos.map((c) => c.id);
+    actividadChart.data.datasets[0].data = estado.cursos.map(() => 1);
+    actividadChart.data.datasets[1].data = estado.cursos.map((curso) =>
+      matriculasPeriodo.filter((m) => m.cursos.includes(curso.id)).length);
+    actividadChart.update();
+  }
+}
+
+function pintarCursosMatricula() {
+  const marcados = new Set([...document.querySelectorAll("#mat-cursos input:checked")].map((i) => i.value));
+  $("mat-cursos").innerHTML = estado.cursos.map((curso) =>
+    `<label data-course-label="${escapar(curso.id)}"><input type="checkbox" value="${escapar(curso.id)}"${marcados.has(curso.id) ? " checked" : ""}>`
+    + `<span><strong>${escapar(curso.id)} — ${escapar(curso.nombre)}</strong><br>${curso.creditos} créditos · ${escapar(textoHorario(curso))}`
+    + ` · ${curso.cupo - (curso.inscritos || 0)} cupos</span></label>`).join("");
 }
 
 function actualizarHorario() {
   const estudianteId = usuarioActual.estudianteId || $("mat-estudiante").value;
-  const horario = sistema.matricula.consultarHorario(estudianteId);
+  const matricula = matriculaActiva(estudianteId);
+  const horario = matricula
+    ? matricula.cursos.flatMap((codigo) => {
+      const curso = cursoPorId(codigo);
+      return curso ? curso.horario.map((f) => ({ ...f, curso: curso.nombre })) : [];
+    })
+    : [];
   const lista = $("my-schedule");
   lista.replaceChildren();
   if (horario.length === 0) {
@@ -199,40 +271,35 @@ function actualizarHorario() {
 }
 
 function actualizarResumenMatricula() {
-  const codigos = [...document.querySelectorAll("#mat-cursos input:checked")].map((input) => input.value);
-  const creditos = codigos.reduce((total, codigo) => {
-    const curso = sistema.cursos.buscarPorId(codigo);
-    return total + (curso ? curso.creditos : 0);
-  }, 0);
+  const cursos = [...document.querySelectorAll("#mat-cursos input:checked")].map((i) => cursoPorId(i.value)).filter(Boolean);
+  const creditos = cursos.reduce((total, curso) => total + curso.creditos, 0);
   const estudiante = usuarioPorId($("mat-estudiante").value);
-  const monto = estudiante ? sistema.pagos.calcularValor(estudiante, creditos, sistema.config.valorCredito) : 0;
-  $("selected-credits").textContent = `${creditos} / ${sistema.config.maxCreditos}`;
+  const monto = estudiante ? vistaPrevia.calcularValor(estudiante, creditos, estado.config.valorCredito) : 0;
+  $("selected-credits").textContent = `${creditos} / ${estado.config.maxCreditos}`;
   $("selected-cost").textContent = formatoPesos(monto);
-  const cursos = codigos.map((codigo) => sistema.cursos.buscarPorId(codigo));
   const conflictos = [];
   for (let i = 0; i < cursos.length; i++) {
     for (let j = i + 1; j < cursos.length; j++) {
       if (seCruzan(cursos[i], cursos[j])) conflictos.push(`${cursos[i].id} y ${cursos[j].id}`);
     }
   }
-  const alerta = $("course-conflicts");
-  alerta.hidden = conflictos.length === 0;
-  alerta.textContent = conflictos.length ? `Conflicto de horario: ${conflictos.join("; ")}` : "";
+  $("course-conflicts").hidden = conflictos.length === 0;
+  $("course-conflicts").textContent = conflictos.length ? `Conflicto de horario: ${conflictos.join("; ")}` : "";
 }
 
 function actualizarDirectorios() {
-  $("student-directory").innerHTML = sistema.estudiantes.listar().map((estudiante) =>
-    `<div class="directory-item"><span class="avatar">${estudiante.nombre.slice(0, 1)}</span><span><strong>${estudiante.nombre}</strong><small>${estudiante.id} · ${estudiante.email}</small></span></div>`
-  ).join("");
-  $("course-directory").innerHTML = cursosAccesibles().map((curso) =>
-    `<tr><td><strong>${curso.id}</strong><br>${curso.nombre}</td><td>${curso.creditos}</td><td>${curso.inscritos} / ${curso.cupo}</td><td>${textoHorario(curso)}</td></tr>`
-  ).join("");
+  $("student-directory").innerHTML = estado.estudiantes.map((e) =>
+    `<div class="directory-item"><span class="avatar">${escapar(e.nombre.slice(0, 1))}</span>`
+    + `<span><strong>${escapar(e.nombre)}</strong><small>${escapar(e.id)} · ${escapar(e.email)}</small></span></div>`).join("");
+  $("course-directory").innerHTML = cursosAccesibles().map((c) =>
+    `<tr><td><strong>${escapar(c.id)}</strong><br>${escapar(c.nombre)}</td><td>${c.creditos}</td>`
+    + `<td>${c.inscritos || 0} / ${c.cupo}</td><td>${escapar(textoHorario(c))}</td></tr>`).join("");
 }
 
 function actualizarPagos() {
   const tbody = $("payment-history");
   tbody.replaceChildren();
-  if (historialPagos.length === 0) {
+  if (estado.pagos.length === 0) {
     const row = document.createElement("tr");
     const cell = document.createElement("td");
     cell.colSpan = 4;
@@ -240,37 +307,60 @@ function actualizarPagos() {
     cell.textContent = "Aún no hay pagos registrados.";
     row.appendChild(cell);
     tbody.appendChild(row);
-  } else {
-    historialPagos.slice().reverse().forEach((pago) => {
-      const row = document.createElement("tr");
-      [pago.referencia, pago.estudiante, formatoPesos(pago.valor)].forEach((value) => {
-        const cell = document.createElement("td");
-        cell.textContent = value;
-        row.appendChild(cell);
-      });
-      const stateCell = document.createElement("td");
-      const badge = document.createElement("span");
-      badge.className = `payment-status ${pago.estado === "Rechazado" ? "rejected" : ""}`;
-      badge.textContent = pago.estado;
-      stateCell.appendChild(badge);
-      row.appendChild(stateCell);
-      tbody.appendChild(row);
+    return;
+  }
+  estado.pagos.forEach((pago) => {
+    const row = document.createElement("tr");
+    const estudiante = usuarioPorId(pago.estudianteId);
+    [pago.referencia, estudiante ? estudiante.nombre : pago.estudianteId, formatoPesos(pago.monto || 0)].forEach((value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
     });
-  }
-  if (usuarioActual.rol === "administrator") {
-    $("stat-enroll").textContent = sistema.matriculas.listar().length;
-  } else if (usuarioActual.rol === "student" && usuarioActual.estudianteId) {
-    const matricula = sistema.matriculas.buscarActiva(usuarioActual.estudianteId, sistema.config.periodo);
-    $("stat-students").textContent = matricula ? matricula.creditos : "0";
-  }
-  if (actividadChart) {
-    actividadChart.data.datasets[1].data = sistema.cursos.listar().map((curso) =>
-      sistema.matriculas.listar().filter((matricula) => matricula.cursos.includes(curso.id)).length
-    );
-    actividadChart.update();
-  }
+    const stateCell = document.createElement("td");
+    const badge = document.createElement("span");
+    badge.className = `payment-status ${pago.estado === "Rechazado" ? "rejected" : ""}`;
+    badge.textContent = pago.estado;
+    if (pago.mensaje) badge.title = pago.mensaje;
+    stateCell.appendChild(badge);
+    row.appendChild(stateCell);
+    tbody.appendChild(row);
+  });
 }
 
+// ---------- Usuarios y roles (administrador)
+function pintarUsuarios() {
+  if (!puede("users")) return;
+  $("usr-cursos").innerHTML = estado.cursos.map((c) =>
+    `<label><input type="checkbox" value="${escapar(c.id)}"> ${escapar(c.id)}</label>`).join("");
+  $("user-directory").innerHTML = estado.usuarios.map((u) => {
+    const propio = u.correo === usuarioActual.correo;
+    const opciones = Object.entries(NOMBRES_ROL).map(([valor, nombre]) =>
+      `<option value="${valor}"${u.rol === valor ? " selected" : ""}>${nombre}</option>`).join("");
+    const detalle = u.rol === "teacher"
+      ? estado.cursos.map((c) => `<label class="me-2"><input type="checkbox" data-user-course="${escapar(u.correo)}" value="${escapar(c.id)}"`
+        + `${u.cursosAsignados.includes(c.id) ? " checked" : ""}> ${escapar(c.id)}</label>`).join("")
+      : escapar(u.estudianteId || "—");
+    return `<tr><td><strong>${escapar(u.nombre)}</strong><br><small>${escapar(u.correo)}</small></td>`
+      + `<td><select class="form-select form-select-sm" data-user-role="${escapar(u.correo)}"${propio ? " disabled" : ""}>${opciones}</select></td>`
+      + `<td><span class="course-checks">${detalle}</span></td>`
+      + `<td>${propio ? '<span class="role-chip">Tu cuenta</span>'
+        : `<button class="btn btn-sm ${u.activo ? "btn-outline-danger" : "btn-outline-success"}" data-user-active="${escapar(u.correo)}" data-value="${!u.activo}">`
+        + `${u.activo ? "Desactivar" : "Activar"}</button>`}</td></tr>`;
+  }).join("");
+}
+
+async function cambiarUsuario(correo, cambios) {
+  try {
+    await SIGAApi.patch("/api/usuarios/" + encodeURIComponent(correo), cambios);
+    mostrar("usr-resultado", "Usuario actualizado.", true);
+  } catch (error) {
+    manejarError(error, "usr-resultado");
+  }
+  await refrescar();
+}
+
+// ---------- Utilidades de pantalla
 function mostrarToast(mensaje, ok) {
   if (typeof bootstrap === "undefined") return;
   const toast = document.createElement("div");
@@ -288,10 +378,10 @@ function iniciarGrafico() {
   actividadChart = new Chart($("activity-chart"), {
     type: "bar",
     data: {
-      labels: sistema.cursos.listar().map((curso) => curso.id),
+      labels: [],
       datasets: [
-        { label: "Cursos", data: sistema.cursos.listar().map(() => 1), backgroundColor: "#4a73d1", borderRadius: 4, maxBarThickness: 23 },
-        { label: "Matrículas", data: sistema.cursos.listar().map(() => 0), backgroundColor: "#53c5a0", borderRadius: 4, maxBarThickness: 23 },
+        { label: "Cursos", data: [], backgroundColor: "#4a73d1", borderRadius: 4, maxBarThickness: 23 },
+        { label: "Matrículas", data: [], backgroundColor: "#53c5a0", borderRadius: 4, maxBarThickness: 23 },
       ],
     },
     options: {
@@ -305,143 +395,192 @@ function iniciarGrafico() {
   });
 }
 
-// ---------- Inicialización de pantalla
-const config = ConfiguracionAcademica.getInstancia();
-$("info-periodo").textContent = `Periodo ${config.periodo} · Máximo ${config.maxCreditos} créditos · Valor del crédito ${formatoPesos(config.valorCredito)}`;
-$("sidebar-periodo").textContent = `Periodo ${config.periodo}`;
-["mat-estudiante", "cal-estudiante", "rep-estudiante"].forEach(llenarEstudiantes);
+function pintarTodo() {
+  if (!esRol("student")) ["mat-estudiante", "cal-estudiante", "rep-estudiante"].forEach(llenarEstudiantes);
+  pintarCursosMatricula();
+  pintarCursosCalificables();
+  pintarIndicadores();
+  actualizarDirectorios();
+  actualizarHorario();
+  actualizarResumenMatricula();
+  actualizarPagos();
+  pintarAvisos();
+  pintarUsuarios();
+}
 
-$("mat-cursos").innerHTML = sistema.cursos.listar().map((curso) =>
-  `<label data-course-label="${curso.id}"><input type="checkbox" value="${curso.id}"><span><strong>${curso.id} — ${curso.nombre}</strong><br>${curso.creditos} créditos · ${textoHorario(curso)}</span></label>`
-).join("");
+async function refrescar() {
+  try {
+    await recargarDatos();
+    pintarTodo();
+    await pintarNotas();
+  } catch (error) {
+    manejarError(error);
+  }
+}
 
-$("cal-curso").innerHTML = sistema.cursos.listar()
-  .map((curso) => `<option value="${curso.id}">${curso.id} - ${curso.nombre}</option>`).join("");
+// ---------- Eventos de la interfaz
+function conectarEventos() {
+  $("sidebar-toggle").addEventListener("click", () => $("sidebar").classList.toggle("open"));
+  document.querySelectorAll(".side-nav a").forEach((link) => link.addEventListener("click", () => {
+    document.querySelectorAll(".side-nav a").forEach((item) => item.classList.remove("active"));
+    link.classList.add("active");
+    $("page-title").textContent = link.textContent.trim();
+    $("sidebar").classList.remove("open");
+  }));
 
-aplicarPerfil();
-actualizarDirectorios();
-actualizarHorario();
-actualizarResumenMatricula();
-iniciarGrafico();
-actualizarPagos();
-pintarAvisos();
-
-const roleEvents = [
-  ["MatriculaConfirmada", (evento) => {
-    mostrarToast("Matrícula confirmada correctamente.", true);
-    actualizarPagos();
-    actualizarDirectorios();
-    actualizarCursosCalificables();
-    actualizarHorario();
-  }],
-  ["PagoAprobado", () => mostrarToast("Pago aprobado.", true)],
-  ["PagoRechazado", (evento) => {
-    mostrarToast(evento.mensaje, false);
-    historialPagos.push({
-      referencia: evento.referencia || "—",
-      estudiante: (usuarioPorId(evento.estudianteId) || {}).nombre || evento.estudianteId,
-      valor: evento.monto || 0,
-      estado: "Rechazado",
+  // Matrícula: el servidor ejecuta la fachada (validar, apartar cupos, cobrar, guardar, avisar).
+  $("mat-estudiante").addEventListener("change", () => { actualizarResumenMatricula(); actualizarHorario(); });
+  $("mat-cursos").addEventListener("change", actualizarResumenMatricula);
+  $("course-search").addEventListener("input", (event) => {
+    const busqueda = event.target.value.trim().toLocaleLowerCase("es");
+    document.querySelectorAll("#mat-cursos label").forEach((label) => {
+      label.hidden = !label.textContent.toLocaleLowerCase("es").includes(busqueda);
     });
-    actualizarPagos();
-  }],
-  ["NotaPublicada", () => mostrarToast("Nota final publicada.", true)],
-  ["PeriodoIniciado", (evento) => mostrarToast(`Inició el periodo ${evento.periodo}.`, true)],
-];
-roleEvents.forEach(([tipo, listener]) => sistema.bus.suscribir(tipo, listener));
-sistema.bus.suscribir("MatriculaConfirmada", pintarAvisos);
-sistema.bus.suscribir("NotaPublicada", pintarAvisos);
-sistema.bus.suscribir("PagoAprobado", pintarAvisos);
-sistema.bus.suscribir("PagoRechazado", pintarAvisos);
-sistema.bus.publicar("PeriodoIniciado", { periodo: config.periodo });
-pintarAvisos();
-
-// ---------- Navegación adaptable
-$("sidebar-toggle").addEventListener("click", () => $("sidebar").classList.toggle("open"));
-document.querySelectorAll(".side-nav a").forEach((link) => link.addEventListener("click", () => {
-  document.querySelectorAll(".side-nav a").forEach((item) => item.classList.remove("active"));
-  link.classList.add("active");
-  $("page-title").textContent = link.textContent.trim();
-  $("sidebar").classList.remove("open");
-}));
-
-// ---------- Matrícula (la fachada conserva las reglas y el orden del proceso)
-$("mat-estudiante").addEventListener("change", actualizarResumenMatricula);
-$("mat-cursos").addEventListener("change", actualizarResumenMatricula);
-$("course-search").addEventListener("input", (event) => {
-  const busqueda = event.target.value.trim().toLocaleLowerCase("es");
-  document.querySelectorAll("#mat-cursos label").forEach((label) => {
-    label.hidden = !label.textContent.toLocaleLowerCase("es").includes(busqueda);
   });
-});
 
-$("btn-matricular").addEventListener("click", () => {
-  const cursos = [...document.querySelectorAll("#mat-cursos input:checked")].map((input) => input.value);
-  const estudiante = usuarioPorId($("mat-estudiante").value);
-  try {
-    const matricula = sistema.matricula.matricular({
-      estudianteId: $("mat-estudiante").value,
-      cursos,
-      medio: $("mat-medio").value,
-      referencia: $("mat-referencia").value.trim(),
-    });
-    const horario = sistema.matricula.consultarHorario(matricula.estudianteId)
-      .map((franja) => `${franja.dia} ${franja.inicio}-${franja.fin} ${franja.curso}`).join(" | ");
-    mostrar("mat-resultado", `Matrícula confirmada: ${matricula.creditos} créditos. Valor pagado: ${formatoPesos(matricula.valor)} (ref. ${matricula.referenciaPago}). Horario: ${horario}`, true);
-    historialPagos.push({ referencia: matricula.referenciaPago, estudiante: estudiante.nombre, valor: matricula.valor, estado: "Pagado" });
-    actualizarPagos();
-    actualizarResumenMatricula();
-  } catch (error) {
-    mostrar("mat-resultado", error.message, false);
-  }
-  pintarAvisos();
-});
+  $("btn-matricular").addEventListener("click", async () => {
+    const boton = $("btn-matricular");
+    boton.disabled = true;
+    try {
+      const { matricula, horario } = await SIGAApi.post("/api/matriculas", {
+        estudianteId: $("mat-estudiante").value,
+        cursos: [...document.querySelectorAll("#mat-cursos input:checked")].map((input) => input.value),
+        medio: $("mat-medio").value,
+        referencia: $("mat-referencia").value.trim(),
+      });
+      const textoFranjas = horario.map((f) => `${f.dia} ${f.inicio}-${f.fin} ${f.curso}`).join(" | ");
+      mostrar("mat-resultado", `Matrícula confirmada: ${matricula.creditos} créditos. Valor pagado: ${formatoPesos(matricula.valor)} `
+        + `(ref. ${matricula.referenciaPago}). Horario: ${textoFranjas}`, true);
+      mostrarToast("Matrícula confirmada correctamente.", true);
+      document.querySelectorAll("#mat-cursos input:checked").forEach((input) => { input.checked = false; });
+    } catch (error) {
+      manejarError(error, "mat-resultado");
+      if (error.estado !== 401) mostrarToast(error.message, false);
+    } finally {
+      boton.disabled = false;
+    }
+    await refrescar();
+  });
 
-// ---------- Calificaciones (el servicio conserva la estrategia de cálculo)
-$("cal-estudiante").addEventListener("change", pintarNotas);
-$("cal-curso").addEventListener("change", pintarNotas);
-$("btn-agregar-nota").addEventListener("click", () => {
-  try {
-    sistema.notas.registrarNota($("cal-estudiante").value, $("cal-curso").value,
-      $("cal-componente").value || "Nota", Number($("cal-porcentaje").value) || 0, parseFloat($("cal-nota").value));
-    $("cal-resultado").textContent = "";
-    ["cal-componente", "cal-porcentaje", "cal-nota"].forEach((id) => { $(id).value = ""; });
-  } catch (error) {
-    mostrar("cal-resultado", error.message, false);
-  }
-  pintarNotas();
-});
+  // Calificaciones: el servidor aplica la estrategia de cálculo del curso.
+  $("cal-estudiante").addEventListener("change", pintarNotas);
+  $("cal-curso").addEventListener("change", pintarNotas);
+  $("btn-agregar-nota").addEventListener("click", async () => {
+    try {
+      await SIGAApi.post("/api/calificaciones", {
+        estudianteId: $("cal-estudiante").value,
+        cursoId: $("cal-curso").value,
+        componente: $("cal-componente").value || "Nota",
+        porcentaje: Number($("cal-porcentaje").value) || 0,
+        valor: parseFloat($("cal-nota").value),
+      });
+      $("cal-resultado").textContent = "";
+      $("cal-resultado").className = "resultado";
+      ["cal-componente", "cal-porcentaje", "cal-nota"].forEach((id) => { $(id).value = ""; });
+    } catch (error) {
+      manejarError(error, "cal-resultado");
+    }
+    await pintarNotas();
+  });
 
-$("btn-publicar").addEventListener("click", () => {
-  try {
-    const nota = sistema.notas.publicarNotaFinal($("cal-estudiante").value, $("cal-curso").value);
-    mostrar("cal-resultado", `Nota final: ${formatoNota(nota.nota)}${nota.aprobado ? " - APROBADO" : " - REPROBADO"}`, nota.aprobado);
-  } catch (error) {
-    mostrar("cal-resultado", error.message, false);
-  }
-  pintarAvisos();
-});
+  $("btn-publicar").addEventListener("click", async () => {
+    try {
+      const nota = await SIGAApi.post("/api/notas-finales", { estudianteId: $("cal-estudiante").value, cursoId: $("cal-curso").value });
+      mostrar("cal-resultado", `Nota final: ${formatoNota(nota.nota)}${nota.aprobado ? " - APROBADO" : " - REPROBADO"}`, nota.aprobado);
+      mostrarToast("Nota final publicada.", true);
+    } catch (error) {
+      manejarError(error, "cal-resultado");
+    }
+    await refrescar();
+  });
 
-// ---------- Reporte
-$("btn-reporte").addEventListener("click", () => {
-  const estudianteId = usuarioActual.rol === "student"
-    ? usuarioActual.estudianteId
-    : $("rep-estudiante").value;
-  const notas = sistema.calificaciones.notasFinalesDe(estudianteId);
-  if (notas.length === 0) {
-    $("rep-resultado").textContent = usuarioActual.rol === "student"
-      ? "El estudiante aún no tiene notas finales."
-      : "No hay notas finales para el estudiante consultado.";
+  // Reporte
+  $("btn-reporte").addEventListener("click", async () => {
+    const estudianteId = esRol("student") ? usuarioActual.estudianteId : $("rep-estudiante").value;
+    let notas;
+    try {
+      notas = await SIGAApi.get("/api/notas-finales", { estudianteId });
+    } catch (error) {
+      manejarError(error);
+      $("rep-resultado").textContent = error.message;
+      return;
+    }
+    if (notas.length === 0) {
+      $("rep-resultado").textContent = esRol("student")
+        ? "El estudiante aún no tiene notas finales."
+        : "No hay notas finales para el estudiante consultado.";
+      return;
+    }
+    let sumaPonderada = 0;
+    let sumaCreditos = 0;
+    const filas = notas.map((nota) => {
+      const curso = cursoPorId(nota.cursoId) || { nombre: nota.cursoId, creditos: 0 };
+      sumaPonderada += nota.nota * curso.creditos;
+      sumaCreditos += curso.creditos;
+      return `<tr><td>${escapar(curso.nombre)}</td><td>${curso.creditos}</td><td>${formatoNota(nota.nota)}</td>`
+        + `<td>${nota.aprobado ? "Aprobado" : "Reprobado"} <div class="progress mt-1" role="progressbar" aria-valuenow="${nota.nota * 20}" `
+        + `aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:${nota.nota * 20}%"></div></div></td></tr>`;
+    }).join("");
+    const promedio = sumaCreditos ? (sumaPonderada / sumaCreditos).toFixed(2).replace(".", ",") : "—";
+    $("rep-resultado").innerHTML = `<table><thead><tr><th>Curso</th><th>Créditos</th><th>Nota</th><th>Estado / avance</th></tr></thead>`
+      + `<tbody>${filas}</tbody></table><p id="rep-promedio" class="mt-3"><strong>Promedio: ${promedio}</strong></p>`;
+  });
+
+  // Usuarios y roles
+  $("usr-rol").addEventListener("change", () => { $("usr-cursos-field").hidden = $("usr-rol").value !== "teacher"; });
+  $("user-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const usuario = await SIGAApi.post("/api/usuarios", {
+        nombre: $("usr-nombre").value,
+        correo: $("usr-correo").value,
+        password: $("usr-password").value,
+        rol: $("usr-rol").value,
+        estrato: 3,
+        cursosAsignados: [...document.querySelectorAll("#usr-cursos input:checked")].map((i) => i.value),
+      });
+      mostrar("usr-resultado", `Usuario ${usuario.correo} creado como ${NOMBRES_ROL[usuario.rol]}.`, true);
+      $("user-form").reset();
+      $("usr-cursos-field").hidden = true;
+    } catch (error) {
+      manejarError(error, "usr-resultado");
+    }
+    await refrescar();
+  });
+  $("user-directory").addEventListener("change", (event) => {
+    const objetivo = event.target;
+    if (objetivo.dataset.userRole) cambiarUsuario(objetivo.dataset.userRole, { rol: objetivo.value });
+    if (objetivo.dataset.userCourse) {
+      const correo = objetivo.dataset.userCourse;
+      const cursos = [...document.querySelectorAll("input[data-user-course]:checked")]
+        .filter((input) => input.dataset.userCourse === correo).map((input) => input.value);
+      cambiarUsuario(correo, { cursosAsignados: cursos });
+    }
+  });
+  $("user-directory").addEventListener("click", (event) => {
+    const boton = event.target.closest("[data-user-active]");
+    if (boton) cambiarUsuario(boton.dataset.userActive, { activo: boton.dataset.value === "true" });
+  });
+}
+
+// ---------- Inicio
+(async () => {
+  const sesion = await SIGAAuth.sesionActual().catch(() => null);
+  if (!sesion) {
+    window.location.replace("login.html");
     return;
   }
-  let sumaPonderada = 0, sumaCreditos = 0;
-  const filas = notas.map((nota) => {
-    const curso = sistema.cursos.buscarPorId(nota.cursoId);
-    sumaPonderada += nota.nota * curso.creditos;
-    sumaCreditos += curso.creditos;
-    return `<tr><td>${curso.nombre}</td><td>${curso.creditos}</td><td>${formatoNota(nota.nota)}</td>`
-      + `<td>${nota.aprobado ? "Aprobado" : "Reprobado"} <div class="progress mt-1" role="progressbar" aria-valuenow="${nota.nota * 20}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:${nota.nota * 20}%"></div></div></td></tr>`;
-  }).join("");
-  $("rep-resultado").innerHTML = `<table><thead><tr><th>Curso</th><th>Créditos</th><th>Nota</th><th>Estado / avance</th></tr></thead><tbody>${filas}</tbody></table>`
-    + `<p id="rep-promedio" class="mt-3"><strong>Promedio: ${(sumaPonderada / sumaCreditos).toFixed(2).replace(".", ",")}</strong></p>`;
-});
+  usuarioActual = sesion.usuario;
+  try {
+    await recargarDatos();
+  } catch (error) {
+    manejarError(error);
+    return;
+  }
+  aplicarPerfil();
+  iniciarGrafico();
+  pintarTodo();
+  conectarEventos();
+  document.body.classList.remove("cargando");
+  await pintarNotas();
+})();

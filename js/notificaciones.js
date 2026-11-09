@@ -1,13 +1,14 @@
 // =====================================================================
 // Notificaciones: canales de envío y el suscriptor (OBSERVER).
-// Los envíos son simulados: se guardan en la "bandeja" que se ve en pantalla.
+// Los envíos son simulados: se guardan en la "bandeja" (un repositorio
+// de avisos) que se ve en pantalla.
 // =====================================================================
 class NotificadorEmail {
   constructor(bandeja) { this.bandeja = bandeja; }
 
-  enviar(estudiante, mensaje) {
+  async enviar(estudiante, mensaje) {
     if (!estudiante.email) return false;
-    this.bandeja.push({ canal: "EMAIL", destino: estudiante.email, mensaje });
+    await this.bandeja.agregar({ canal: "EMAIL", destino: estudiante.email, estudianteId: estudiante.id, mensaje });
     return true;
   }
 }
@@ -15,9 +16,11 @@ class NotificadorEmail {
 class NotificadorSms {
   constructor(bandeja) { this.bandeja = bandeja; }
 
-  enviar(estudiante, mensaje) {
+  async enviar(estudiante, mensaje) {
     if (!estudiante.telefono) return false;
-    this.bandeja.push({ canal: "SMS", destino: estudiante.telefono, mensaje: mensaje.slice(0, 160) });
+    await this.bandeja.agregar({
+      canal: "SMS", destino: estudiante.telefono, estudianteId: estudiante.id, mensaje: mensaje.slice(0, 160),
+    });
     return true;
   }
 }
@@ -39,15 +42,19 @@ class SuscriptorNotificaciones {
     bus.suscribir("NotaPublicada", (e) =>
       this.#avisar(e.estudianteId, "Nota definitiva de " + e.nombreCurso + ": " + formatoNota(e.nota)
         + (e.aprobado ? " (APROBADO)" : " (REPROBADO)")));
-    bus.suscribir("PeriodoIniciado", (e) =>
-      this.estudiantes.listar().forEach((estudiante) =>
-        this.canales.forEach((canal) => canal.enviar(estudiante, "Inició el periodo académico " + e.periodo))));
+    bus.suscribir("PeriodoIniciado", async (e) => {
+      for (const estudiante of await this.estudiantes.listar()) {
+        await this.#enviarATodos(estudiante, "Inició el periodo académico " + e.periodo);
+      }
+    });
   }
 
-  #avisar(estudianteId, mensaje) {
-    const estudiante = this.estudiantes.buscarPorId(estudianteId);
-    if (estudiante) {
-      this.canales.forEach((canal) => canal.enviar(estudiante, mensaje));
-    }
+  async #avisar(estudianteId, mensaje) {
+    const estudiante = await this.estudiantes.buscarPorId(estudianteId);
+    if (estudiante) await this.#enviarATodos(estudiante, mensaje);
+  }
+
+  async #enviarATodos(estudiante, mensaje) {
+    for (const canal of this.canales) await canal.enviar(estudiante, mensaje);
   }
 }

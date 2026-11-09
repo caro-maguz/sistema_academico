@@ -1,6 +1,7 @@
 // Patrones OBSERVER (avisos automáticos) y SINGLETON (configuración).
 describe("Avisos (Observer) y configuración (Singleton)", () => {
   beforeEach(() => {
+    cy.iniciarSesion("admin");
     cy.visit("index.html");
   });
 
@@ -14,11 +15,7 @@ describe("Avisos (Observer) y configuración (Singleton)", () => {
 
   it("Observer: si un aviso falla, la matrícula se hace igual", () => {
     // Simulamos un suscriptor que falla (por ejemplo, el servidor de correo caído)
-    cy.window().then((win) => {
-      win.SIGA.sistema.bus.suscribir("MatriculaConfirmada", () => {
-        throw new Error("Servidor de correo caído");
-      });
-    });
+    cy.task("suscriptorQueFalla", "MatriculaConfirmada");
     cy.matricular("E001", ["BD501"], "PSE", "Bancolombia");
     cy.get("#mat-resultado").should("contain", "Matrícula confirmada");
     cy.get("#avisos").should("contain", "Tu matrícula quedó confirmada");

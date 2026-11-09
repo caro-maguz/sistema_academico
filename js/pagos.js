@@ -100,7 +100,7 @@ class ServicioPagos {
     return this.seleccionarDescuento(estudiante).aplicar(creditos * valorCredito);
   }
 
-  pagar(estudiante, medio, referencia, monto) {
+  async pagar(estudiante, medio, referencia, monto) {
     const pasarela = this.pasarelas[medio];
     if (!pasarela) throw new ReglaNegocioError("Medio de pago no soportado: " + medio);
 
@@ -109,9 +109,9 @@ class ServicioPagos {
       : pasarela.cobrar({ documento: estudiante.id, referencia, monto });
 
     if (resultado.aprobado) {
-      this.bus.publicar("PagoAprobado", { estudianteId: estudiante.id, monto, referencia: resultado.referencia });
+      await this.bus.publicar("PagoAprobado", { estudianteId: estudiante.id, monto, referencia: resultado.referencia });
     } else {
-      this.bus.publicar("PagoRechazado", {
+      await this.bus.publicar("PagoRechazado", {
         estudianteId: estudiante.id,
         monto,
         medio,

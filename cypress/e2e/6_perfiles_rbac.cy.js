@@ -25,20 +25,18 @@ describe("Vistas por perfil (RBAC)", () => {
     cy.get("#btn-reporte").click();
     cy.get("#rep-resultado").should("have.text", "El estudiante aún no tiene notas finales.");
 
+    // Datos cargados directamente en el servidor de pruebas.
+    cy.task("agregarCalificacion", {
+      estudianteId: "E001", cursoId: "ARQ701", componente: "Parcial propio", porcentaje: 100, valor: 4.2,
+    });
+    cy.task("agregarCalificacion", {
+      estudianteId: "E002", cursoId: "ARQ701", componente: "Parcial ajeno", porcentaje: 100, valor: 2.1,
+    });
+    cy.task("guardarNotaFinal", { estudianteId: "E001", cursoId: "ARQ701", nota: 4.2, aprobado: true });
+    cy.task("guardarNotaFinal", { estudianteId: "E002", cursoId: "BD501", nota: 2.1, aprobado: false });
+
+    // Aunque alguien manipule los selectores en el navegador, solo ve sus propios datos.
     cy.window().then((window) => {
-      const { sistema } = window.SIGA;
-      sistema.calificaciones.agregar("E001", "ARQ701", {
-        componente: "Parcial propio", porcentaje: 100, valor: 4.2,
-      });
-      sistema.calificaciones.agregar("E002", "ARQ701", {
-        componente: "Parcial ajeno", porcentaje: 100, valor: 2.1,
-      });
-      sistema.calificaciones.guardarNotaFinal({
-        estudianteId: "E001", cursoId: "ARQ701", nota: 4.2, aprobado: true,
-      });
-      sistema.calificaciones.guardarNotaFinal({
-        estudianteId: "E002", cursoId: "BD501", nota: 2.1, aprobado: false,
-      });
 
       const curso = window.document.querySelector("#cal-curso");
       curso.add(new window.Option("ARQ701 - Arquitectura de Software", "ARQ701"));
@@ -53,6 +51,10 @@ describe("Vistas por perfil (RBAC)", () => {
     cy.get("#cal-lista").should("contain", "Parcial propio").and("not.contain", "Parcial ajeno");
     cy.get("#btn-reporte").click();
     cy.get("#rep-resultado").should("contain", "Arquitectura de Software").and("not.contain", "Bases de Datos");
+
+    // El servidor rechaza pedir datos de otro estudiante directamente.
+    cy.request({ url: "/api/notas-finales?estudianteId=E002", failOnStatusCode: false })
+      .its("status").should("eq", 403);
   });
 
   it("mantiene para Docente solo el catálogo de sus cursos asignados y la gestión de notas", () => {
