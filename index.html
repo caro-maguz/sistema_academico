@@ -260,6 +260,18 @@
         }
       });
 
+      // Diccionario para traducir los roles al español de forma limpia
+      const rolesTraducidos = {
+        "administrator": "Administrador",
+        "admin": "Administrador",
+        "teacher": "Docente",
+        "docente": "Docente",
+        "student": "Estudiante",
+        "estudiante": "Estudiante"
+      };
+
+      const rolTextoFormateado = rolesTraducidos[rolActual.toLowerCase()] || "Estudiante";
+
       // Actualizar datos del perfil de usuario en el topbar y vista
       const nameEl = document.getElementById("user-name");
       const roleEl = document.getElementById("user-role");
@@ -274,7 +286,9 @@
       if (profileNameEl) profileNameEl.textContent = nombre;
       if (profileEmailEl) profileEmailEl.textContent = usuarioGuardado.email || "";
       if (avatarEl) avatarEl.textContent = nombre.substring(0, 2).toUpperCase();
-      if (roleEl) roleEl.textContent = rolActual.charAt(0).toUpperCase() + rolActual.slice(1);
+      
+      // Muestra el rol traducido en la interfaz
+      if (roleEl) roleEl.textContent = rolTextoFormateado;
     });
   </script>
 
