@@ -20,7 +20,6 @@
       <nav class="side-nav" aria-label="Navegación principal">
         <a href="#inicio" data-permission="dashboard"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
         <a href="#usuarios" data-permission="users"><i class="bi bi-people"></i> Usuarios</a>
-        <a href="#usuarios" data-permission="users" data-role="administrator"><i class="bi bi-person-workspace"></i> Docentes</a>
         <a href="#estudiantes" data-permission="students"><i class="bi bi-person-vcard"></i> Estudiantes</a>
         <a href="#cursos" data-permission="courses" data-nav-courses><i class="bi bi-journal-bookmark"></i> Cursos</a>
         <a href="#matriculas" data-permission="enroll" data-nav-enroll><i class="bi bi-clipboard-check"></i> Matrículas</a>
@@ -218,10 +217,12 @@
             <div class="panel-heading"><div><span class="section-kicker">GESTIÓN DE PERSONAS</span><h2>Directorio de estudiantes</h2><p>Estudiantes de ejemplo disponibles en el repositorio local.</p></div><span class="module-number"><i class="bi bi-people"></i></span></div>
             <div id="student-directory" class="directory-list"></div>
           </section>
+          
           <section id="cursos" class="panel module-panel admin-placeholder" data-permission-section="courses">
             <div class="panel-heading"><div><span class="section-kicker">OFERTA ACADÉMICA</span><h2 id="course-directory-title">Catálogo de cursos</h2><p id="course-directory-description">Consulta de cursos y su disponibilidad.</p></div><span class="module-number"><i class="bi bi-journal-bookmark"></i></span></div>
             <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Curso</th><th>Créditos</th><th>Inscritos</th><th>Horario</th></tr></thead><tbody id="course-directory"></tbody></table></div>
           </section>
+          
           <section id="usuarios" class="panel module-panel admin-placeholder" data-permission-section="users">
             <div class="panel-heading"><div><span class="section-kicker">ADMINISTRACIÓN</span><h2>Usuarios</h2><p>Acceso de demostración por perfiles. La gestión persistente requiere backend.</p></div><span class="module-number"><i class="bi bi-person-gear"></i></span></div>
             <div class="gateway-note"><i class="bi bi-info-circle"></i><span><strong>Control de acceso de interfaz</strong><small>La autenticación local es solo una demostración y no protege datos ni sustituye autorización en servidor.</small></span></div>
@@ -240,6 +241,51 @@
   <script src="js/config.js"></script>
   <script src="js/permissions.js"></script>
   <script src="js/auth.js"></script>
+  
+  <!-- SCRIPT DE CONTROL DE ROLES Y PERMISOS DINÁMICOS -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const usuarioGuardado = JSON.parse(localStorage.getItem("usuario_siga"));
+      if (!usuarioGuardado) return;
+
+      const rolActual = usuarioGuardado.rol || "student";
+
+      // Si el rol no existe en SIGAPermissions, usar estudiante por defecto
+      const permisosRol = SIGAPermissions[rolActual] || SIGAPermissions.student;
+
+      // Ocultar elementos del menú lateral que no correspondan al rol
+      document.querySelectorAll(".side-nav a[data-permission]").forEach((enlace) => {
+        const permisoReq = enlace.getAttribute("data-permission");
+        if (!permisosRol.includes(permisoReq)) {
+          enlace.style.display = "none";
+        }
+      });
+
+      // Ocultar secciones enteras del contenido según permisos
+      document.querySelectorAll("[data-permission-section]").forEach((seccion) => {
+        const permisoSec = seccion.getAttribute("data-permission-section");
+        if (!permisosRol.includes(permisoSec)) {
+          seccion.style.display = "none";
+        }
+      });
+
+      // Actualizar nombre y rol en la barra superior
+      const nameEl = document.getElementById("user-name");
+      const roleEl = document.getElementById("user-role");
+      const avatarEl = document.getElementById("user-avatar");
+      const welcomeNameEl = document.getElementById("welcome-name");
+
+      if (usuarioGuardado.nombre) {
+        if (nameEl) nameEl.textContent = usuarioGuardado.nombre;
+        if (welcomeNameEl) welcomeNameEl.textContent = usuarioGuardado.nombre;
+        if (avatarEl) avatarEl.textContent = usuarioGuardado.nombre.substring(0, 2).toUpperCase();
+      }
+      if (roleEl) {
+        roleEl.textContent = rolActual.charAt(0).toUpperCase() + rolActual.slice(1);
+      }
+    });
+  </script>
+
   <script src="js/eventos.js"></script>
   <script src="js/repositorios.js"></script>
   <script src="js/pagos.js"></script>

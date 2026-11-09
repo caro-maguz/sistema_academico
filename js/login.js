@@ -10,22 +10,21 @@ loginForm.addEventListener("submit", async (event) => {
   const passwordInput = document.getElementById("login-password").value.trim();
   const remember = document.getElementById("remember-session").checked;
 
-  // 1. Intentar primero con el sistema de autenticación de demostración existente (SIGAAuth)
+  // 1. Intentar con el login de demostración existente (SIGAAuth)
   let user = SIGAAuth.login(emailInput, passwordInput, remember);
 
   if (user) {
-    // Redirección dinámica basada en el rol de la cuenta demo
     if (emailInput.includes("admin")) {
-      window.location.assign("index.html#dashboard");
+      window.location.assign("index.html");
     } else if (emailInput.includes("docente")) {
-      window.location.assign("index.html#docentes");
+      window.location.assign("index.html");
     } else {
-      window.location.assign("index.html#estudiantes");
+      window.location.assign("index.html");
     }
     return;
   }
 
-  // 2. Si no es cuenta demo, verificar si es un estudiante registrado en la Base de Datos (MongoDB)
+  // 2. Si no es demo, buscar en la base de datos de MongoDB (estudiantes registrados)
   try {
     const response = await fetch("/api/estudiantes");
     if (response.ok) {
@@ -33,14 +32,13 @@ loginForm.addEventListener("submit", async (event) => {
       const estudianteEncontrado = estudiantes.find(est => est.email && est.email.toLowerCase() === emailInput);
 
       if (estudianteEncontrado) {
-        // Simulamos la sesión del estudiante registrado y lo enviamos a su sección
         localStorage.setItem("usuario_siga", JSON.stringify({
           id: estudianteEncontrado.id,
           nombre: estudianteEncontrado.nombre,
           email: estudianteEncontrado.email,
-          rol: "estudiante"
+          rol: "student"
         }));
-        window.location.assign("index.html#estudiantes");
+        window.location.assign("index.html");
         return;
       }
     }
@@ -48,7 +46,7 @@ loginForm.addEventListener("submit", async (event) => {
     console.error("Error al validar con la base de datos:", err);
   }
 
-  // Si no coincide con nada, mostrar error de credenciales incorrectas
+  // Si no coincide con nada
   loginError.hidden = false;
   document.getElementById("login-password").setAttribute("aria-invalid", "true");
 });
