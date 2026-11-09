@@ -13,9 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const nombre = document.getElementById("reg-name").value.trim();
     const email = document.getElementById("reg-email").value.trim();
     const telefono = document.getElementById("reg-phone").value.trim();
+    const password = document.getElementById("reg-password").value.trim();
 
-    if (!id || !nombre || !email) {
-      errorAlert.textContent = "Por favor completa los campos obligatorios (ID, Nombre y Correo).";
+    if (!id || !nombre || !email || !password) {
+      errorAlert.textContent = "Por favor completa los campos obligatorios (ID, Nombre, Correo y Contraseña).";
       errorAlert.hidden = false;
       return;
     }
@@ -26,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
         nombre,
         email,
         telefono,
+        password, // <--- Contraseña incluida para la persistencia
         estrato: 3,
         beca: 0,
         rol: "student" // Rol asignado explícitamente para el control de acceso

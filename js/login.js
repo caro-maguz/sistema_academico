@@ -29,7 +29,11 @@ loginForm.addEventListener("submit", async (event) => {
     const response = await fetch("/api/estudiantes");
     if (response.ok) {
       const estudiantes = await response.json();
-      const estudianteEncontrado = estudiantes.find(est => est.email && est.email.toLowerCase() === emailInput);
+      
+      // Valida que coincida TANTO el correo COMO la contraseña guardada
+      const estudianteEncontrado = estudiantes.find(est => 
+        est.email && est.email.toLowerCase() === emailInput && est.password === passwordInput
+      );
 
       if (estudianteEncontrado) {
         localStorage.setItem("usuario_siga", JSON.stringify({
