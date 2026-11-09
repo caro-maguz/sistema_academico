@@ -2,7 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("register-form");
   const errorAlert = document.getElementById("register-error");
   const successAlert = document.getElementById("register-success");
-  const estudianteRepo = new EstudianteRepository();
+  
+  // Verificamos si existe el repositorio para evitar errores de referencia
+  const estudianteRepo = typeof EstudianteRepository !== "undefined" ? new EstudianteRepository() : null;
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -27,17 +29,32 @@ document.addEventListener("DOMContentLoaded", () => {
         email,
         telefono,
         estrato: 3,
-        beca: 0
+        beca: 0,
+        rol: "estudiante" // Aseguramos que se cree con rol de estudiante
       };
 
-      await estudianteRepo.guardar(nuevoEstudiante);
+      if (estudianteRepo) {
+        await estudianteRepo.guardar(nuevoEstudiante);
+      } else {
+        // Fallback por si el repositorio no está cargado, usando fetch directo
+        const respuesta = await fetch(`/api/estudiantes/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(nuevoEstudiante)
+        });
+        if (!respuesta.ok) throw new Error("Error al guardar en el servidor.");
+      }
+
       successAlert.hidden = false;
       form.reset();
 
+      // Redirigir al login después de 1.5 segundos para que alcance a leer el mensaje de éxito
       setTimeout(() => {
         window.location.href = "login.html";
-      }, 2000);
+      }, 1500);
+
     } catch (err) {
+      console.error("Error en el registro:", err);
       errorAlert.textContent = err.message || "Error al registrar el estudiante en la base de datos.";
       errorAlert.hidden = false;
     }
