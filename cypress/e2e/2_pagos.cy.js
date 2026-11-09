@@ -1,6 +1,7 @@
 // Patrones STRATEGY (descuentos) y ADAPTER (pasarelas de pago).
 describe("Pagos (Strategy y Adapter)", () => {
   beforeEach(() => {
+    cy.iniciarSesion("admin");
     cy.visit("index.html");
   });
 

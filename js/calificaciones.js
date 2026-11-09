@@ -40,26 +40,28 @@ class ServicioCalificaciones {
     };
   }
 
-  registrarNota(estudianteId, cursoId, componente, porcentaje, valor) {
-    this.#validarMatriculado(estudianteId, cursoId);
+  async registrarNota(estudianteId, cursoId, componente, porcentaje, valor) {
+    await this.#validarMatriculado(estudianteId, cursoId);
     if (isNaN(valor) || valor < 0 || valor > 5) throw new ReglaNegocioError("La nota debe estar entre 0 y 5");
-    this.calificaciones.agregar(estudianteId, cursoId, { componente, porcentaje, valor });
+    if (isNaN(porcentaje) || porcentaje < 0 || porcentaje > 100) throw new ReglaNegocioError("El porcentaje debe estar entre 0 y 100");
+    await this.calificaciones.agregar(estudianteId, cursoId, { componente, porcentaje, valor });
   }
 
-  publicarNotaFinal(estudianteId, cursoId) {
-    this.#validarMatriculado(estudianteId, cursoId);
-    const curso = this.cursos.buscarPorId(cursoId);
+  async publicarNotaFinal(estudianteId, cursoId) {
+    await this.#validarMatriculado(estudianteId, cursoId);
+    const curso = await this.cursos.buscarPorId(cursoId);
     const estrategia = this.estrategias[curso.esquema];
-    const nota = Math.round(estrategia.calcular(this.calificaciones.listar(estudianteId, cursoId)) * 10) / 10;
+    const notas = await this.calificaciones.listar(estudianteId, cursoId);
+    const nota = Math.round(estrategia.calcular(notas) * 10) / 10;
     const notaFinal = { estudianteId, cursoId, nota, aprobado: nota >= this.config.notaMinima };
 
-    this.calificaciones.guardarNotaFinal(notaFinal);
-    this.bus.publicar("NotaPublicada", { ...notaFinal, nombreCurso: curso.nombre });
+    await this.calificaciones.guardarNotaFinal(notaFinal);
+    await this.bus.publicar("NotaPublicada", { ...notaFinal, nombreCurso: curso.nombre });
     return notaFinal;
   }
 
-  #validarMatriculado(estudianteId, cursoId) {
-    const matricula = this.matriculas.buscarActiva(estudianteId, this.config.periodo);
+  async #validarMatriculado(estudianteId, cursoId) {
+    const matricula = await this.matriculas.buscarActiva(estudianteId, this.config.periodo);
     if (!matricula || !matricula.cursos.includes(cursoId)) {
       throw new ReglaNegocioError("El estudiante no está matriculado en " + cursoId);
     }

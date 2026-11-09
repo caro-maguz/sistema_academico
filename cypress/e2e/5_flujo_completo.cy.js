@@ -1,6 +1,7 @@
 // Flujo completo: matricular -> poner notas -> ver avisos -> ver reporte (usa el Repository).
 describe("Flujo completo", () => {
   it("matricular, calificar y ver el historial con el promedio", () => {
+    cy.iniciarSesion("admin");
     cy.visit("index.html");
     cy.matricular("E001", ["ARQ701", "BD501"], "PSE", "Bancolombia");
 

@@ -18,10 +18,11 @@ class BusEventos {
     this.suscriptores[tipo].push(funcion);
   }
 
-  publicar(tipo, datos) {
+  // Espera a cada suscriptor (pueden guardar en la base de datos).
+  async publicar(tipo, datos) {
     for (const funcion of this.suscriptores[tipo] || []) {
       try {
-        funcion(datos);
+        await funcion(datos);
       } catch (e) {
         // Si un suscriptor falla, los demás igual reciben el evento.
         this.errores.push(tipo + ": " + e.message);

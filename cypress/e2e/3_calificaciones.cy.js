@@ -1,6 +1,7 @@
 // Patrón STRATEGY: cada curso calcula la nota final a su manera.
 describe("Calificaciones (Strategy)", () => {
   beforeEach(() => {
+    cy.iniciarSesion("admin");
     cy.visit("index.html");
     cy.matricular("E001", ["ARQ701", "CAL601"], "PSE", "Bancolombia");
     cy.get("#cal-estudiante").select("E001");
