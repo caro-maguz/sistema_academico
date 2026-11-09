@@ -55,7 +55,7 @@
       </header>
 
       <main class="content">
-        <section id="inicio" class="welcome-row" data-permission-section="dashboard">
+        <section id="inicio" class="welcome-row">
           <div>
             <p class="eyebrow">SISTEMA INTEGRADO DE GESTIÓN ACADÉMICA</p>
             <h1>Hola, <span id="welcome-name">Administrador</span> <span class="wave">✦</span></h1>
@@ -64,7 +64,7 @@
           <div class="period-display"><i class="bi bi-calendar3"></i><span id="info-periodo"></span></div>
         </section>
 
-        <section class="stats-grid" data-permission-section="dashboard" aria-label="Indicadores">
+        <section class="stats-grid" aria-label="Indicadores">
           <article class="stat-card">
             <div class="stat-icon students-icon"><i class="bi bi-people"></i></div>
             <div class="stat-copy"><span id="stat-students-label">Estudiantes</span><strong id="stat-students">3</strong><small><i class="bi bi-arrow-up-right"></i> <span id="stat-students-note">Comunidad activa</span></small></div>
@@ -88,7 +88,7 @@
         </section>
 
         <div class="dashboard-grid">
-          <section class="panel activity-panel" data-permission-section="dashboard">
+          <section class="panel activity-panel">
             <div class="panel-heading">
               <div><h2>Actividad académica</h2><p>Resumen de cursos y matrículas</p></div>
               <span class="soft-badge"><span class="status-dot"></span> En vivo</span>
@@ -96,7 +96,7 @@
             <div class="chart-wrap"><canvas id="activity-chart" aria-label="Gráfico de actividad académica"></canvas></div>
             <div class="chart-legend"><span><i class="legend-dot legend-blue"></i>Cursos</span><span><i class="legend-dot legend-mint"></i>Matrículas</span></div>
           </section>
-          <section class="panel quick-panel" data-permission-section="dashboard">
+          <section class="panel quick-panel">
             <div class="panel-heading"><div><h2>Accesos rápidos</h2><p>Continúa con tus tareas</p></div></div>
             <a class="quick-link" href="#matriculas" data-permission="enroll"><span class="quick-icon"><i class="bi bi-plus-circle"></i></span><span><strong>Nueva matrícula</strong><small>Gestionar inscripciones</small></span><i class="bi bi-arrow-up-right"></i></a>
             <a class="quick-link" href="#calificaciones" data-permission="grades"><span class="quick-icon lilac"><i id="grades-quick-icon" class="bi bi-pencil-square"></i></span><span><strong id="grades-quick-title">Registrar calificaciones</strong><small id="grades-quick-description">Notas y resultados</small></span><i class="bi bi-arrow-up-right"></i></a>
@@ -105,7 +105,7 @@
         </div>
 
         <div class="modules-grid">
-          <section id="matriculas" class="panel module-panel" data-permission-section="enroll">
+          <section id="matriculas" class="panel module-panel">
             <div class="panel-heading">
               <div><span class="section-kicker">GESTIÓN ACADÉMICA</span><h2>Matrículas</h2><p>Selecciona cursos para realizar la matrícula.</p></div>
               <span class="module-number">01</span>
@@ -139,7 +139,7 @@
             <div id="mat-resultado" class="resultado" role="status" aria-live="polite"></div>
           </section>
 
-          <section id="calificaciones" class="panel module-panel" data-permission-section="grades">
+          <section id="calificaciones" class="panel module-panel">
             <div class="panel-heading">
               <div><span class="section-kicker">SEGUIMIENTO ACADÉMICO</span><h2 id="grades-title">Calificaciones</h2><p id="grades-description">Registra notas y publica resultados finales.</p></div>
               <span class="module-number">02</span>
@@ -162,7 +162,7 @@
             <div id="cal-resultado" class="resultado" role="status" aria-live="polite"></div>
           </section>
 
-          <section id="pagos" class="panel module-panel" data-permission-section="payments">
+          <section id="pagos" class="panel module-panel">
             <div class="panel-heading">
               <div><span class="section-kicker">TESORERÍA</span><h2>Historial de pagos</h2><p>Estado de pagos procesados en esta sesión.</p></div>
               <span class="module-number">03</span>
@@ -176,7 +176,7 @@
             <div class="gateway-note"><i class="bi bi-shield-check"></i><span><strong>Pasarela de demostración</strong><small>Los pagos son simulados; no se procesa información financiera real.</small></span></div>
           </section>
 
-          <section id="reportes" class="panel module-panel" data-permission-section="reports">
+          <section id="reportes" class="panel module-panel">
             <div class="panel-heading">
               <div><span class="section-kicker">INFORMACIÓN ACADÉMICA</span><h2>Historial y reportes</h2><p id="reports-description">Consulta el rendimiento académico por estudiante.</p></div>
               <span class="module-number">04</span>
@@ -189,23 +189,24 @@
             <div id="rep-resultado" class="report-result"></div>
           </section>
 
-          <section id="horario" class="panel module-panel" data-permission-section="schedule">
+          <section id="horario" class="panel module-panel">
             <div class="panel-heading"><div><span class="section-kicker">PLANIFICACIÓN ACADÉMICA</span><h2>Mi horario</h2><p>Horario de cursos matriculados en el periodo.</p></div><span class="module-number"><i class="bi bi-calendar-week"></i></span></div>
             <ul id="my-schedule" class="schedule-list"></ul>
           </section>
 
-          <section id="perfil" class="panel module-panel" data-permission-section="profile">
+          <section id="perfil" class="panel module-panel">
             <div class="panel-heading"><div><span class="section-kicker">CUENTA PERSONAL</span><h2>Mi perfil</h2><p>Datos del usuario de demostración.</p></div><span class="module-number"><i class="bi bi-person-circle"></i></span></div>
             <div class="directory-item"><span class="avatar" id="profile-avatar">US</span><span><strong id="profile-name">Usuario</strong><small id="profile-email"></small></span></div>
             <div class="gateway-note mt-3"><i class="bi bi-shield-exclamation"></i><span><strong>Perfil local</strong><small>La información de esta sesión no se valida contra un servidor.</small></span></div>
+            <a class="btn btn-outline-danger mt-3" href="login.html?logout=1"><i class="bi bi-box-arrow-right"></i> Cambiar de usuario</a>
           </section>
 
-          <section id="configuracion" class="panel module-panel" data-permission-section="config">
+          <section id="configuracion" class="panel module-panel">
             <div class="panel-heading"><div><span class="section-kicker">ADMINISTRACIÓN ACADÉMICA</span><h2>Configuración</h2><p>Parámetros activos del periodo de demostración.</p></div><span class="module-number"><i class="bi bi-gear"></i></span></div>
             <div class="config-list"><div><span>Periodo vigente</span><strong id="config-period"></strong></div><div><span>Máximo de créditos</span><strong id="config-credits"></strong></div><div><span>Valor por crédito</span><strong id="config-price"></strong></div></div>
           </section>
 
-          <section id="actividad" class="panel module-panel" data-permission-section="notifications">
+          <section id="actividad" class="panel module-panel">
             <div class="panel-heading">
               <div><span class="section-kicker">CENTRO DE NOTIFICACIONES</span><h2>Actividad reciente</h2><p>Avisos académicos y confirmaciones de eventos.</p></div>
               <span class="module-number"><i class="bi bi-bell"></i></span>
@@ -213,17 +214,17 @@
             <ul id="avisos" class="notice-list" aria-live="polite"></ul>
           </section>
 
-          <section id="estudiantes" class="panel module-panel admin-placeholder" data-permission-section="students">
+          <section id="estudiantes" class="panel module-panel admin-placeholder">
             <div class="panel-heading"><div><span class="section-kicker">GESTIÓN DE PERSONAS</span><h2>Directorio de estudiantes</h2><p>Estudiantes de ejemplo disponibles en el repositorio local.</p></div><span class="module-number"><i class="bi bi-people"></i></span></div>
             <div id="student-directory" class="directory-list"></div>
           </section>
-          
-          <section id="cursos" class="panel module-panel admin-placeholder" data-permission-section="courses">
+
+          <section id="cursos" class="panel module-panel admin-placeholder">
             <div class="panel-heading"><div><span class="section-kicker">OFERTA ACADÉMICA</span><h2 id="course-directory-title">Catálogo de cursos</h2><p id="course-directory-description">Consulta de cursos y su disponibilidad.</p></div><span class="module-number"><i class="bi bi-journal-bookmark"></i></span></div>
             <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Curso</th><th>Créditos</th><th>Inscritos</th><th>Horario</th></tr></thead><tbody id="course-directory"></tbody></table></div>
           </section>
-          
-          <section id="usuarios" class="panel module-panel admin-placeholder" data-permission-section="users">
+
+          <section id="usuarios" class="panel module-panel admin-placeholder">
             <div class="panel-heading"><div><span class="section-kicker">ADMINISTRACIÓN</span><h2>Usuarios</h2><p>Acceso de demostración por perfiles. La gestión persistente requiere backend.</p></div><span class="module-number"><i class="bi bi-person-gear"></i></span></div>
             <div class="gateway-note"><i class="bi bi-info-circle"></i><span><strong>Control de acceso de interfaz</strong><small>La autenticación local es solo una demostración y no protege datos ni sustituye autorización en servidor.</small></span></div>
             <a class="btn btn-outline-primary mt-3" href="login.html?logout=1"><i class="bi bi-person-plus"></i> Cambiar de usuario</a>
@@ -241,19 +242,17 @@
   <script src="js/config.js"></script>
   <script src="js/permissions.js"></script>
   <script src="js/auth.js"></script>
-  
-  <!-- SCRIPT DE CONTROL DE ROLES Y PERMISOS DINÁMICOS -->
+
+  <!-- FILTRADO EXCLUSIVO DE LA NAVEGACIÓN Y PERFIL -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const usuarioGuardado = JSON.parse(localStorage.getItem("usuario_siga"));
       if (!usuarioGuardado) return;
 
       const rolActual = usuarioGuardado.rol || "student";
-
-      // Si el rol no existe en SIGAPermissions, usar estudiante por defecto
       const permisosRol = SIGAPermissions[rolActual] || SIGAPermissions.student;
 
-      // Ocultar elementos del menú lateral que no correspondan al rol
+      // Filtrar únicamente los enlaces de la barra lateral
       document.querySelectorAll(".side-nav a[data-permission]").forEach((enlace) => {
         const permisoReq = enlace.getAttribute("data-permission");
         if (!permisosRol.includes(permisoReq)) {
@@ -261,28 +260,21 @@
         }
       });
 
-      // Ocultar secciones enteras del contenido según permisos
-      document.querySelectorAll("[data-permission-section]").forEach((seccion) => {
-        const permisoSec = seccion.getAttribute("data-permission-section");
-        if (!permisosRol.includes(permisoSec)) {
-          seccion.style.display = "none";
-        }
-      });
-
-      // Actualizar nombre y rol en la barra superior
+      // Actualizar datos del perfil de usuario en el topbar y vista
       const nameEl = document.getElementById("user-name");
       const roleEl = document.getElementById("user-role");
       const avatarEl = document.getElementById("user-avatar");
       const welcomeNameEl = document.getElementById("welcome-name");
+      const profileNameEl = document.getElementById("profile-name");
+      const profileEmailEl = document.getElementById("profile-email");
 
-      if (usuarioGuardado.nombre) {
-        if (nameEl) nameEl.textContent = usuarioGuardado.nombre;
-        if (welcomeNameEl) welcomeNameEl.textContent = usuarioGuardado.nombre;
-        if (avatarEl) avatarEl.textContent = usuarioGuardado.nombre.substring(0, 2).toUpperCase();
-      }
-      if (roleEl) {
-        roleEl.textContent = rolActual.charAt(0).toUpperCase() + rolActual.slice(1);
-      }
+      const nombre = usuarioGuardado.nombre || usuarioGuardado.email;
+      if (nameEl) nameEl.textContent = nombre;
+      if (welcomeNameEl) welcomeNameEl.textContent = nombre;
+      if (profileNameEl) profileNameEl.textContent = nombre;
+      if (profileEmailEl) profileEmailEl.textContent = usuarioGuardado.email || "";
+      if (avatarEl) avatarEl.textContent = nombre.substring(0, 2).toUpperCase();
+      if (roleEl) roleEl.textContent = rolActual.charAt(0).toUpperCase() + rolActual.slice(1);
     });
   </script>
 
